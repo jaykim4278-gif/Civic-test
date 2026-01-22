@@ -39,17 +39,20 @@ export function Flashcard({
   const parsedKeywords = keywords ? JSON.parse(keywords) as { word: string, definition: string }[] : [];
 
   return (
-    <div className="w-full max-w-lg mx-auto perspective-1000 min-h-[300px] h-auto relative flex flex-col">
+    <div className="w-full max-w-lg mx-auto perspective-1000 min-h-[400px] h-auto relative flex flex-col p-8">
       <div className="relative flex-1 cursor-pointer group" onClick={handleFlip}>
         <motion.div
           initial={false}
           animate={{ rotateY: isFlipped ? 180 : 0 }}
           transition={{ duration: 0.6, type: "spring", stiffness: 260, damping: 20 }}
           className="w-full h-full preserve-3d absolute inset-0 rounded-3xl shadow-xl bg-card border-2 border-border/50 group-hover:border-primary/20 transition-colors"
-          style={{ transformStyle: "preserve-3d" }}
+          style={{ transformStyle: "preserve-3d", position: 'relative' }}
         >
           {/* Front of Card */}
-          <div className="absolute inset-0 backface-hidden p-8 flex flex-col items-center justify-center text-center bg-white rounded-3xl">
+          <div 
+            className="backface-hidden p-8 flex flex-col items-center justify-center text-center bg-white rounded-3xl w-full h-full"
+            style={{ backfaceVisibility: 'hidden' }}
+          >
             <div className="absolute top-6 left-6 w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary">
               <HelpCircle className="w-6 h-6" />
             </div>
@@ -72,7 +75,12 @@ export function Flashcard({
 
           {/* Back of Card */}
           <div 
-            className="absolute inset-0 backface-hidden p-8 flex flex-col items-center justify-center text-center bg-primary/5 rounded-3xl rotate-y-180"
+            className="backface-hidden p-8 flex flex-col items-center justify-center text-center bg-primary/5 rounded-3xl w-full h-full absolute inset-0"
+            style={{ 
+              backfaceVisibility: 'hidden', 
+              transform: 'rotateY(180deg)',
+              position: 'absolute'
+            }}
           >
             <div className="absolute top-6 left-6 w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white shadow-lg shadow-primary/30 shrink-0">
               <Check className="w-6 h-6 stroke-[3px]" />

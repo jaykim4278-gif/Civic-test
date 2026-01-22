@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { useStudySession, useSubmitReview } from "@/hooks/use-study";
@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 
 export default function StudySession() {
   const [, setLocation] = useLocation();
-  const { data: sessionItems, isLoading, error } = useStudySession();
+  const search = useSearch();
+  const mode = new URLSearchParams(search).get("mode") || undefined;
+  const { data: sessionItems, isLoading, error } = useStudySession(mode);
   const { mutate: submitReview, isPending: isSubmitting } = useSubmitReview();
   
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -23,17 +25,13 @@ export default function StudySession() {
     
     const currentItem = sessionItems[currentIndex];
     
+    // Optimistic Update: Move to next card instantly
+    setCompletedCount(prev => prev + 1);
+    setCurrentIndex(prev => prev + 1);
+
     submitReview({
       questionId: currentItem.id,
       quality,
-    }, {
-      onSuccess: () => {
-        // Wait a tiny bit for UI feedback then next card
-        setTimeout(() => {
-          setCompletedCount(prev => prev + 1);
-          setCurrentIndex(prev => prev + 1);
-        }, 200);
-      }
     });
   };
 

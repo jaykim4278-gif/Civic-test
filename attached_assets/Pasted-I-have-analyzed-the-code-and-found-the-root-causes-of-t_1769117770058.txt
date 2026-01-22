@@ -1,0 +1,37 @@
+I have analyzed the code and found the root causes of the "Not Random" and "Looping to Question 1" bugs. Please apply these 3 fixes strictly:
+
+**1. Fix `useStudySession` Hook (Enable Random Mode):**
+* Open `client/hooks/use-study.ts`.
+* Update `useStudySession` to accept an optional argument: `mode?: string`.
+* Update the `queryKey` to include the mode: `[api.study.session.path, mode]`.
+* Update the `queryFn` fetch URL:
+  * If `mode` is provided, fetch `${api.study.session.path}?mode=${mode}`.
+  * Otherwise, fetch `api.study.session.path`.
+* **Reason:** Currently, the hook ignores the URL parameter, so the backend always returns the ordered list (starting with Question 1).
+
+**2. Fix `StudySession.tsx` (Pass Mode & Optimistic Update):**
+* Open `client/pages/StudySession.tsx`.
+* **Pass Mode:**
+  * Import `useSearch` from "wouter".
+  * Get the search string: `const search = useSearch();`
+  * Parse it: `const mode = new URLSearchParams(search).get("mode") || undefined;`
+  * Pass `mode` to the hook: `const { data: sessionItems, ... } = useStudySession(mode);`
+* **Optimistic Update (Fix Looping):**
+  * In `handleResult`, **REMOVE** the `onSuccess` callback and the `setTimeout`.
+  * Move the state updates (`setCompletedCount` and `setCurrentIndex`) to the top of `handleResult`, **before** calling `submitReview`.
+  * Call `submitReview` in a "fire-and-forget" manner (don't await it, don't wait for callback).
+  * **Reason:** This ensures the UI moves to the next card INSTANTLY. It prevents the "stuck on Q1" glitch caused by waiting for server re-validation.
+
+**3. Fix `Flashcard.tsx` UI (Overflow):**
+* Open `client/components/Flashcard.tsx`.
+* Refactor the main card container styles:
+  * **Remove** fixed heights: `h-64`, `h-80`, `h-96`, `aspect-video`, `absolute`.
+  * **Add** dynamic height: `min-h-[400px]`, `h-auto`.
+  * **Add** spacing: `flex flex-col p-8`.
+  * Ensure the text wraps properly and the card grows to fit the vocabulary list.
+
+**Summary of Fixes:**
+1. Hook now sends `?mode=random`.
+2. Session page now reads `?mode=random` and passes it.
+3. Next card triggers instantly (Optimistic UI).
+4. Cards grow with text (CSS fix).

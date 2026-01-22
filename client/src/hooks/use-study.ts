@@ -7,11 +7,12 @@ type StudyItem = z.infer<typeof api.study.session.responses[200]>[number];
 type StatsResponse = z.infer<typeof api.study.stats.responses[200]>;
 type ReviewInput = z.infer<typeof api.study.review.input>;
 
-export function useStudySession() {
+export function useStudySession(mode?: string) {
   return useQuery({
-    queryKey: [api.study.session.path],
+    queryKey: [api.study.session.path, mode],
     queryFn: async () => {
-      const res = await fetch(api.study.session.path, { credentials: "include" });
+      const url = mode ? `${api.study.session.path}?mode=${mode}` : api.study.session.path;
+      const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch study session");
       // Use schema to parse response
       return api.study.session.responses[200].parse(await res.json());
