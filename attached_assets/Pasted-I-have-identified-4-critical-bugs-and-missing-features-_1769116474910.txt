@@ -1,0 +1,30 @@
+I have identified 4 critical bugs and missing features after the update. Please fix them strictly following these steps. Do not change the schema, just update logic and UI.
+
+**1. Fix Data Integrity (Missing Questions #1-#6):**
+* **Update `/api/seed` route:** Before inserting `CIVICS_DATA`, you **MUST execute `await db.delete(questions)`** to completely wipe the table clean.
+    * *Reason:* Currently, IDs 1-6 are missing because of ID conflicts with previous data. We need a clean slate.
+
+**2. Fix Backend Logic (Start Session Order):**
+* **Update `/api/study/session`:**
+    * Keep the random shuffle logic for `mode === 'random'`.
+    * **CRITICAL:** If `mode` is NOT random (the default "Start Session"), you **MUST apply `.orderBy(asc(questions.id))`** to the query.
+    * *Reason:* Currently, "Start Session" returns questions in random order. It MUST start from Question ID #1.
+
+**3. Fix Flashcard UI (Remove Scroll):**
+* **Update `components/Flashcard.tsx`:**
+    * Find the main card container (likely has classes like `h-64`, `h-80`, `aspect-video`, or `overflow-y-auto`).
+    * **Remove fixed height and overflow classes.**
+    * Add `min-h-[300px]` and `h-auto`.
+    * *Reason:* The card should grow vertically to fit the content/vocabulary without showing an internal scrollbar.
+
+**4. Implement "Vocabulary List" Feature:**
+* **Create `client/pages/VocabularyList.tsx`:**
+    * Fetch all questions.
+    * Parse the `keywords` JSON string from every question.
+    * Aggregate them into a single list, **deduplicate** them, and **sort them alphabetically (A-Z)**.
+    * Render a clean list: **Word** (Bold) - *Definition* (Text) + Speaker Icon (Lucide `Volume2`) for TTS.
+* **Update `client/App.tsx`:** Add the route `/vocabulary` pointing to this new page.
+* **Update `Home.tsx`:** In the "Library" section, add a new button/link labeled "Vocabulary List" that points to `/vocabulary`.
+
+**Final Step:**
+* After updating the code, **automatically trigger the `/api/seed` route** immediately to repair the database (restore IDs 1-6).

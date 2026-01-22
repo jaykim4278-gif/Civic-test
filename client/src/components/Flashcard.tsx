@@ -39,7 +39,7 @@ export function Flashcard({
   const parsedKeywords = keywords ? JSON.parse(keywords) as { word: string, definition: string }[] : [];
 
   return (
-    <div className="w-full max-w-lg mx-auto perspective-1000 min-h-[400px] relative flex flex-col">
+    <div className="w-full max-w-lg mx-auto perspective-1000 min-h-[300px] h-auto relative flex flex-col">
       <div className="relative flex-1 cursor-pointer group" onClick={handleFlip}>
         <motion.div
           initial={false}
@@ -72,7 +72,7 @@ export function Flashcard({
 
           {/* Back of Card */}
           <div 
-            className="absolute inset-0 backface-hidden p-8 flex flex-col overflow-y-auto items-center justify-start text-center bg-primary/5 rounded-3xl rotate-y-180"
+            className="absolute inset-0 backface-hidden p-8 flex flex-col items-center justify-center text-center bg-primary/5 rounded-3xl rotate-y-180"
           >
             <div className="absolute top-6 left-6 w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white shadow-lg shadow-primary/30 shrink-0">
               <Check className="w-6 h-6 stroke-[3px]" />

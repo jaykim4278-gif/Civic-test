@@ -137,7 +137,7 @@ export default function Home() {
         {/* Quick Links */}
         <section className="pt-4">
           <h3 className="text-lg font-bold text-foreground mb-4 px-2">Library</h3>
-          <div className="bg-white rounded-2xl border border-border overflow-hidden">
+          <div className="bg-white rounded-2xl border border-border overflow-hidden divide-y divide-border">
             <Link href="/questions" className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors">
               <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
                 <BookOpen className="w-5 h-5" />
@@ -145,6 +145,17 @@ export default function Home() {
               <div className="flex-1">
                 <h4 className="font-bold text-base">Browse All Questions</h4>
                 <p className="text-sm text-muted-foreground">View the complete list of 100 civics questions</p>
+              </div>
+              <ArrowRight className="w-5 h-5 text-muted-foreground/50" />
+            </Link>
+
+            <Link href="/vocabulary" className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors">
+              <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center">
+                <Trophy className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-base">Vocabulary List</h4>
+                <p className="text-sm text-muted-foreground">Master core terms from all questions</p>
               </div>
               <ArrowRight className="w-5 h-5 text-muted-foreground/50" />
             </Link>

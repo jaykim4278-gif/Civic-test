@@ -92,18 +92,9 @@ export async function registerRoutes(
       return res.json(allQuestions.map(q => ({ ...q, isNew: true })));
     }
 
-    // 1. Get Due Items
-    const dueItems = await storage.getDueQuestions(100); 
-    
-    // 2. Get New Items (Show up to 100 new questions if available)
-    const newItems = await storage.getNewQuestions(100);
-
-    const session = [
-      ...dueItems.map(item => ({ ...item, isNew: false })),
-      ...newItems.map(item => ({ ...item, isNew: true, progress: undefined }))
-    ];
-
-    res.json(session);
+    // Default mode: Return in ID order
+    const allQuestions = await db.select().from(questionsSchema).orderBy(asc(questionsSchema.id));
+    return res.json(allQuestions.map(q => ({ ...q, isNew: true })));
   });
 
   // Submit Review
