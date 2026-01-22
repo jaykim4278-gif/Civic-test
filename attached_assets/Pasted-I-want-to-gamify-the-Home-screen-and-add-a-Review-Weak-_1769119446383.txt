@@ -1,0 +1,43 @@
+I want to gamify the Home screen and add a "Review Weak Spots" mode.
+Please strictly follow these 3 steps to upgrade the app:
+
+**1. Upgrade Backend Stats (`server/routes.ts`):**
+* **Import:** Ensure `eq`, `and`, `lt`, `desc`, `gte`, `sql` are imported from `"drizzle-orm"`.
+* **Update `GET /api/study/stats`:**
+    * Calculate `totalQuestions` (count of all rows in `questions`).
+    * Calculate `masteredCount`: Count rows in `userProgress` where `easeFactor > 2.5` (items the user finds easy).
+    * Calculate `currentStreak`:
+        * Fetch all distinct `lastReviewedAt` dates from `userProgress` ordered by date desc.
+        * Loop through them to count consecutive days going back from today.
+    * Calculate `hardCount`: Count rows in `userProgress` where `easeFactor < 2.5` (items user marked as Hard).
+    * Return JSON: `{ totalQuestions, masteredCount, currentStreak, hardCount }`.
+
+**2. Upgrade Session Logic (`server/routes.ts`):**
+* **Update `GET /api/study/session`:**
+    * Update logic to handle `req.query.mode`.
+    * **Mode 'hard':**
+        * Perform a JOIN: `db.select().from(questions).leftJoin(userProgress, eq(questions.id, userProgress.questionId))`
+        * Filter where `userProgress.easeFactor < 2.5`.
+        * Return these questions.
+    * **Mode 'random':** Keep existing random logic.
+    * **Default:** Keep existing ordered logic.
+    * *Important:* Ensure the returned JSON structure is consistent (array of questions).
+
+**3. Redesign Home Screen (`client/pages/Home.tsx`):**
+* **Visual Style:** Use a clean, modern "Duolingo-style" dashboard.
+* **Top Bar:**
+    * Left: "Welcome back! 🇺🇸"
+    * Right: **Streak Counter (🔥)**. If `streak > 0`, use Orange icon + "{streak} Day Streak". Else, Gray icon.
+* **Main Dashboard (New Design):**
+    * **Left:** A large **Donut Chart (Circular Progress)** showing Mastery %.
+        * Formula: `Math.round((stats.masteredCount / stats.totalQuestions) * 100)`
+        * Text in center: "X% Mastered".
+    * **Right:** Two Action Buttons stacked vertically.
+        1.  **"Start Session" (Primary, Green):** Big button. Text: "Continue Learning".
+        2.  **"Review Weak Spots" (Secondary, Rose/Red):** Only show this if `stats.hardCount > 0`.
+            * Text: "Review {hardCount} Weak Items".
+            * Link: `/study?mode=hard`.
+            * Icon: `Zap` or `AlertTriangle`.
+* **Library Section:** Keep the existing "Browse All" and "Vocabulary List" buttons below.
+
+**Action:** Apply these changes to create a motivating, gamified experience with specific review capabilities.

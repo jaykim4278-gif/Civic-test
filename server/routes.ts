@@ -7,8 +7,8 @@ import { questions as questionsSchema } from "@shared/schema"; // For typing if 
 import { addDays, addMinutes } from "date-fns";
 import { CIVICS_DATA } from "./civics_data";
 import { db } from "./db";
-import { questions } from "@shared/schema";
-import { asc, sql } from "drizzle-orm";
+import { asc, sql, eq, and, lt, desc, gte } from "drizzle-orm";
+import { questions, userProgress } from "@shared/schema";
 
 // SM-2 Algorithm Implementation
 function calculateSM2(
@@ -85,7 +85,18 @@ export async function registerRoutes(
       
       let sessionQuestions;
       
-      if (mode === "random") {
+      if (mode === "hard") {
+        // Mode 'hard': Join with userProgress and filter by easeFactor < 2.5
+        const results = await db.select({
+          question: questions,
+          progress: userProgress
+        })
+        .from(questions)
+        .innerJoin(userProgress, eq(questions.id, userProgress.questionId))
+        .where(lt(userProgress.easeFactor, 2.5));
+        
+        sessionQuestions = results.map(r => r.question);
+      } else if (mode === "random") {
         // Use SQL random for true shuffling
         sessionQuestions = await db.select().from(questions).orderBy(sql`RANDOM()`);
       } else {
@@ -93,11 +104,11 @@ export async function registerRoutes(
         sessionQuestions = await db.select().from(questions).orderBy(asc(questions.id));
       }
 
-      // Map to expected format (adding isNew: true as default since we are in simple mode)
+      // Map to expected format
       const result = sessionQuestions.map(q => ({
         ...q,
         isNew: true, 
-        progress: undefined // Simplify for now to prevent join errors
+        progress: undefined
       }));
 
       res.json(result);
@@ -145,8 +156,63 @@ export async function registerRoutes(
   });
 
   app.get(api.study.stats.path, async (req, res) => {
-    const stats = await storage.getStudyStats();
-    res.json(stats);
+    try {
+      // 1. Total Questions
+      const allQuestions = await db.select().from(questions);
+      const totalQuestions = allQuestions.length;
+
+      // 2. Mastered Count (easeFactor > 2.5)
+      const mastered = await db.select()
+        .from(userProgress)
+        .where(gte(userProgress.easeFactor, 2.5));
+      const masteredCount = mastered.length;
+
+      // 3. Hard Count (easeFactor < 2.5)
+      const hards = await db.select()
+        .from(userProgress)
+        .where(lt(userProgress.easeFactor, 2.5));
+      const hardCount = hards.length;
+
+      // 4. Current Streak
+      const reviews = await db.select({
+        date: sql`DISTINCT DATE(${userProgress.lastReviewedAt})`
+      })
+      .from(userProgress)
+      .orderBy(desc(sql`DATE(${userProgress.lastReviewedAt})`));
+
+      let currentStreak = 0;
+      if (reviews.length > 0) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        let checkDate = today;
+        for (const review of reviews) {
+          const reviewDate = new Date(review.date as string);
+          reviewDate.setHours(0, 0, 0, 0);
+
+          const diff = Math.floor((checkDate.getTime() - reviewDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (diff === 0 || diff === 1) {
+            currentStreak++;
+            checkDate = reviewDate;
+          } else {
+            break;
+          }
+        }
+      }
+
+      res.json({
+        totalQuestions,
+        masteredCount,
+        currentStreak,
+        hardCount,
+        totalLearned: reviews.length, // Fallback for existing UI if needed
+        dueToday: 0 // Simplified for now
+      });
+    } catch (error) {
+      console.error("Stats Error:", error);
+      res.status(500).json({ message: "Failed to load stats" });
+    }
   });
 
   // === Seeding Data ===

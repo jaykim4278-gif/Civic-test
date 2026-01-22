@@ -1,17 +1,12 @@
 import { Link } from "wouter";
-import { BookOpen, Calendar, Trophy, ArrowRight, Flag } from "lucide-react";
+import { BookOpen, Calendar, Trophy, ArrowRight, Flag, Zap, Flame, AlertCircle } from "lucide-react";
 import { Navigation } from "@/components/Navigation";
-import { StatsCard } from "@/components/StatsCard";
-import { ProgressBar } from "@/components/ProgressBar";
 import { useStudyStats } from "@/hooks/use-study";
 import { motion } from "framer-motion";
 
 export default function Home() {
   const { data: stats, isLoading } = useStudyStats();
 
-  // Simulated daily goal (could be user setting later)
-  const DAILY_GOAL = 10;
-  
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -20,146 +15,117 @@ export default function Home() {
     );
   }
 
-  const itemsReviewedToday = Math.max(0, DAILY_GOAL - (stats?.dueToday || 0));
+  const masteryPercent = stats ? Math.round((stats.masteredCount / stats.totalQuestions) * 100) : 0;
+  const streak = stats?.currentStreak || 0;
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-8">
-      {/* Hero Section */}
-      <header className="bg-white border-b border-border">
-        <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-2">
-                Good Morning! 🇺🇸
-              </h1>
-              <p className="text-muted-foreground text-lg">
-                Ready to ace your citizenship test?
-              </p>
-            </div>
-            <div className="hidden md:block w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary rotate-3 hover:rotate-6 transition-transform">
-              <Flag className="w-8 h-8 fill-current" />
-            </div>
-          </div>
-
-          <div className="mt-8 bg-white/50 border-2 border-primary/10 rounded-3xl p-6 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-primary">
-                <Trophy className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-muted-foreground font-bold text-sm uppercase tracking-wider">Cards Learned</p>
-                <p className="text-3xl font-display font-bold text-foreground">{stats?.totalLearned || 0}</p>
-              </div>
-            </div>
-            <div className="h-12 w-px bg-primary/10 mx-4" />
-            <div className="flex-1">
-              <p className="text-muted-foreground font-bold text-sm uppercase tracking-wider">Due for Review</p>
-              <p className="text-3xl font-display font-bold text-primary">{stats?.dueToday || 0}</p>
-            </div>
+      {/* Top Bar */}
+      <header className="bg-white border-b border-border sticky top-0 z-20">
+        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+          <h1 className="text-xl font-display font-bold text-slate-800">
+            Welcome back! 🇺🇸
+          </h1>
+          <div className={cn(
+            "flex items-center gap-2 px-3 py-1.5 rounded-full font-bold text-sm transition-colors",
+            streak > 0 ? "bg-orange-50 text-orange-600" : "bg-slate-100 text-slate-400"
+          )}>
+            <Flame className={cn("w-5 h-5", streak > 0 ? "fill-orange-500" : "")} />
+            <span>{streak} Day Streak</span>
           </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Main CTA */}
-        <section className="space-y-4">
-          <Link href="/study">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="
-                w-full group relative overflow-hidden rounded-3xl
-                bg-gradient-to-br from-primary to-primary/80 
-                text-white p-8 text-left shadow-lg shadow-primary/25
-                border-b-4 border-green-700
-                hover:shadow-xl hover:shadow-primary/30 transition-all
-              "
-            >
-              <div className="relative z-10 flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl md:text-3xl font-display font-bold mb-2 group-hover:translate-x-1 transition-transform">
-                    Start Session
-                  </h2>
-                  <p className="text-primary-foreground/90 font-medium">
-                    {stats?.dueToday ? `${stats.dueToday} cards due for review` : "Practice new cards"}
-                  </p>
-                </div>
-                <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm group-hover:bg-white/30 transition-colors">
-                  <ArrowRight className="w-8 h-8 text-white" />
-                </div>
-              </div>
-              
-              {/* Decorative circle */}
-              <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-white/10 rounded-full blur-3xl" />
-            </motion.button>
-          </Link>
+      <main className="max-w-4xl mx-auto px-6 py-8 space-y-10">
+        {/* Main Dashboard */}
+        <section className="bg-white rounded-[2.5rem] p-8 md:p-12 border-2 border-slate-100 shadow-xl shadow-slate-200/50 flex flex-col md:flex-row items-center gap-12">
+          {/* Left: Mastery Donut */}
+          <div className="relative w-48 h-48 flex items-center justify-center">
+            <svg className="w-full h-full -rotate-90">
+              <circle
+                cx="96" cy="96" r="88"
+                fill="transparent"
+                stroke="currentColor"
+                strokeWidth="12"
+                className="text-slate-100"
+              />
+              <motion.circle
+                cx="96" cy="96" r="88"
+                fill="transparent"
+                stroke="currentColor"
+                strokeWidth="12"
+                strokeDasharray={552.92}
+                initial={{ strokeDashoffset: 552.92 }}
+                animate={{ strokeDashoffset: 552.92 - (552.92 * masteryPercent) / 100 }}
+                transition={{ duration: 1.5, ease: "easeOut" }}
+                className="text-emerald-500"
+                strokeLinecap="round"
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <span className="text-4xl font-display font-black text-slate-800">{masteryPercent}%</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Mastered</span>
+            </div>
+          </div>
 
-          <div className="mt-4">
-            <Link href="/study?mode=random">
+          {/* Right: Action Buttons */}
+          <div className="flex-1 w-full space-y-4">
+            <Link href="/study">
               <motion.button
-                whileHover={{ scale: 1.02 }}
+                whileHover={{ scale: 1.02, y: -2 }}
                 whileTap={{ scale: 0.98 }}
-                className="
-                  w-full group relative overflow-hidden rounded-3xl
-                  bg-white border-2 border-primary/20
-                  text-primary p-6 text-left shadow-md
-                  hover:border-primary/40 hover:bg-primary/5 transition-all
-                "
+                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white p-6 rounded-2xl font-display font-bold text-xl shadow-lg shadow-emerald-200 flex items-center justify-center gap-3 transition-all"
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-display font-bold">Random Practice</h2>
-                    <p className="text-muted-foreground text-sm font-medium">Study all 100 questions in random order</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20">
-                    <ArrowRight className="w-5 h-5" />
-                  </div>
-                </div>
+                <BookOpen className="w-6 h-6" />
+                Continue Learning
               </motion.button>
             </Link>
+
+            {stats && stats.hardCount > 0 && (
+              <Link href="/study?mode=hard">
+                <motion.button
+                  whileHover={{ scale: 1.02, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 border-2 border-rose-100 p-6 rounded-2xl font-display font-bold text-xl flex items-center justify-center gap-3 transition-all"
+                >
+                  <Zap className="w-6 h-6 fill-rose-500" />
+                  Review {stats.hardCount} Weak Items
+                </motion.button>
+              </Link>
+            )}
           </div>
         </section>
 
-        {/* Stats Grid */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <StatsCard 
-            label="Learned" 
-            value={stats?.totalLearned || 0} 
-            icon={Trophy} 
-            color="secondary" 
-          />
-          <StatsCard 
-            label="Due Today" 
-            value={stats?.dueToday || 0} 
-            icon={Calendar} 
-            color="accent" 
-          />
-        </section>
-        
-        {/* Quick Links */}
-        <section className="pt-4">
-          <h3 className="text-lg font-bold text-foreground mb-4 px-2">Library</h3>
-          <div className="bg-white rounded-2xl border border-border overflow-hidden divide-y divide-border">
-            <Link href="/questions" className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
-                <BookOpen className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-base">Browse All Questions</h4>
-                <p className="text-sm text-muted-foreground">View the complete list of 100 civics questions</p>
-              </div>
-              <ArrowRight className="w-5 h-5 text-muted-foreground/50" />
+        {/* Library Section */}
+        <section>
+          <div className="flex items-center justify-between mb-6 px-2">
+            <h3 className="text-2xl font-display font-bold text-slate-800">Library</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Link href="/questions">
+              <motion.div 
+                whileHover={{ y: -4 }}
+                className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all cursor-pointer group"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <BookOpen className="w-6 h-6" />
+                </div>
+                <h4 className="text-lg font-bold text-slate-800 mb-1">Browse All</h4>
+                <p className="text-slate-500 text-sm">View all 100 civics questions</p>
+              </motion.div>
             </Link>
 
-            <Link href="/vocabulary" className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors">
-              <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center">
-                <Trophy className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-base">Vocabulary List</h4>
-                <p className="text-sm text-muted-foreground">Master core terms from all questions</p>
-              </div>
-              <ArrowRight className="w-5 h-5 text-muted-foreground/50" />
+            <Link href="/vocabulary">
+              <motion.div 
+                whileHover={{ y: -4 }}
+                className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm hover:shadow-md hover:border-purple-100 transition-all cursor-pointer group"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <Trophy className="w-6 h-6" />
+                </div>
+                <h4 className="text-lg font-bold text-slate-800 mb-1">Vocabulary</h4>
+                <p className="text-slate-500 text-sm">Master 300+ core terms</p>
+              </motion.div>
             </Link>
           </div>
         </section>
