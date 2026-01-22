@@ -1,0 +1,72 @@
+I have one last attempt to fix the UI. The current `Flashcard.tsx` is broken because `absolute` positioning causes text overlap, and the design is outdated.
+
+**You must strictly REPLACE the entire return statement and CSS logic in `client/components/Flashcard.tsx` with the "Grid Stack" technique.**
+
+Please follow these 4 instructions precisely:
+
+**1. CSS Grid Stacking (The Core Fix):**
+* The `motion.div` (the rotating card) MUST be a CSS Grid: `className="w-full relative preserve-3d transition-all duration-500 grid grid-cols-1"`.
+* **CRITICAL:** Both the Front Face (`div`) and Back Face (`div`) MUST share the exact same grid cell to overlap perfectly: `className="col-start-1 row-start-1 backface-hidden relative h-auto min-h-[400px] ..."`.
+* **REMOVE** all `absolute inset-0` classes from the faces. This ensures the card expands naturally to fit the tallest content (the vocabulary list).
+
+**2. Redesign the FRONT Face (Modern & Clean):**
+* Remove the "Help" icon circle. Keep it minimal.
+* Center the Question text with a nice serif or display font: `text-2xl md:text-3xl font-display font-bold leading-snug`.
+* Place the "Tap to flip" hint at the very bottom with `mt-auto`.
+* Position the Speaker icon (Volume2) elegantly at the top-right.
+
+**3. Fix the BACK Face (Spacing & Flow):**
+* Use `flex flex-col` inside the Back face.
+* Ensure the "Core Vocabulary" section has `mt-8` (margin top) and `pt-6` (padding top) with a border-top separator to keep it distinct from the answer.
+* Ensure the Vocabulary tags wrap correctly: `flex flex-wrap justify-center gap-2`.
+
+**4. Button Flow:**
+* Ensure the "Hard/Good/Easy" buttons container is **OUTSIDE** the `motion.div` but inside the main flex container.
+* Give it `mt-8` so it gets pushed down when the card grows.
+
+**Implementation Blueprint (Use this structure):**
+```tsx
+return (
+  <div className="w-full max-w-2xl mx-auto perspective-1000 flex flex-col items-center">
+    {/* Card Container */}
+    <div className="w-full cursor-pointer group" onClick={handleFlip}>
+      <motion.div
+        initial={false}
+        animate={{ rotateY: isFlipped ? 180 : 0 }}
+        transition={{ duration: 0.6, type: "spring", stiffness: 260, damping: 20 }}
+        className="w-full preserve-3d grid grid-cols-1" // Grid Stack Magic
+      >
+        {/* FRONT FACE */}
+        <div className="col-start-1 row-start-1 backface-hidden relative bg-white rounded-3xl shadow-xl border-2 border-border/50 p-8 md:p-12 flex flex-col items-center text-center h-auto min-h-[420px]">
+           {/* Top Row: Category badge & Speaker */}
+           <div className="w-full flex justify-between items-start mb-8">
+             <span className="bg-primary/5 text-primary text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Question</span>
+             <button onClick={(e) => { e.stopPropagation(); speak(question); }} className="p-3 hover:bg-muted rounded-full transition-colors"><Volume2 className="w-6 h-6 text-primary" /></button>
+           </div>
+           
+           {/* Main Question - Centered */}
+           <div className="flex-1 flex items-center justify-center w-full my-4">
+             <h3 className="text-3xl md:text-4xl font-display font-bold text-slate-800 leading-tight">{question}</h3>
+           </div>
+
+           {/* Bottom Hint */}
+           <p className="mt-auto text-muted-foreground/60 text-sm font-semibold uppercase tracking-widest pt-8">Tap to see answer</p>
+        </div>
+
+        {/* BACK FACE */}
+        <div 
+          className="col-start-1 row-start-1 backface-hidden relative bg-slate-50 rounded-3xl shadow-xl border-2 border-primary/20 p-8 md:p-12 flex flex-col items-center text-center h-auto min-h-[420px]" 
+          style={{ transform: "rotateY(180deg)" }}
+        >
+           {/* Answer Content... (Include Translation & Vocabulary here with proper spacing) */}
+           {/* Make sure Vocabulary section has 'mt-8 border-t pt-6' */}
+        </div>
+      </motion.div>
+    </div>
+
+    {/* Action Buttons (Pushed down naturally) */}
+    <div className="mt-8 w-full max-w-md">
+      {/* ... Buttons Code ... */}
+    </div>
+  </div>
+);
