@@ -94,28 +94,30 @@ export default function Home() {
             </motion.button>
           </Link>
 
-          <Link href="/study?mode=random">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="
-                w-full group relative overflow-hidden rounded-3xl
-                bg-white border-2 border-primary/20
-                text-primary p-6 text-left shadow-md
-                hover:border-primary/40 hover:bg-primary/5 transition-all
-              "
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-display font-bold">Random Practice</h2>
-                  <p className="text-muted-foreground text-sm font-medium">Study all 100 questions in random order</p>
+          <div className="mt-4">
+            <Link href="/study?mode=random">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="
+                  w-full group relative overflow-hidden rounded-3xl
+                  bg-white border-2 border-primary/20
+                  text-primary p-6 text-left shadow-md
+                  hover:border-primary/40 hover:bg-primary/5 transition-all
+                "
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-display font-bold">Random Practice</h2>
+                    <p className="text-muted-foreground text-sm font-medium">Study all 100 questions in random order</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20">
+                    <ArrowRight className="w-5 h-5" />
+                  </div>
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20">
-                  <ArrowRight className="w-5 h-5" />
-                </div>
-              </div>
-            </motion.button>
-          </Link>
+              </motion.button>
+            </Link>
+          </div>
         </section>
 
         {/* Stats Grid */}

@@ -8,6 +8,7 @@ import { addDays, addMinutes } from "date-fns";
 import { CIVICS_DATA } from "./civics_data";
 import { db } from "./db";
 import { questions } from "@shared/schema";
+import { asc, sql } from "drizzle-orm";
 
 // SM-2 Algorithm Implementation
 function calculateSM2(
@@ -78,23 +79,32 @@ export async function registerRoutes(
     res.status(201).json(question);
   });
 
-  // Study Session: Get mixed batch of Due + New
-  app.get(api.study.session.path, async (req, res) => {
-    const { mode } = req.query;
-    
-    if (mode === 'random') {
-      const allQuestions = await storage.getQuestions();
-      // Fisher-Yates shuffle
-      for (let i = allQuestions.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [allQuestions[i], allQuestions[j]] = [allQuestions[j], allQuestions[i]];
+  app.get("/api/study/session", async (req, res) => {
+    try {
+      const mode = req.query.mode as string | undefined;
+      
+      let sessionQuestions;
+      
+      if (mode === "random") {
+        // Use SQL random for true shuffling
+        sessionQuestions = await db.select().from(questions).orderBy(sql`RANDOM()`);
+      } else {
+        // Default: Start from ID 1 strictly
+        sessionQuestions = await db.select().from(questions).orderBy(asc(questions.id));
       }
-      return res.json(allQuestions.map(q => ({ ...q, isNew: true })));
-    }
 
-    // Default mode: Return in ID order
-    const allQuestions = await db.select().from(questionsSchema).orderBy(asc(questionsSchema.id));
-    return res.json(allQuestions.map(q => ({ ...q, isNew: true })));
+      // Map to expected format (adding isNew: true as default since we are in simple mode)
+      const result = sessionQuestions.map(q => ({
+        ...q,
+        isNew: true, 
+        progress: undefined // Simplify for now to prevent join errors
+      }));
+
+      res.json(result);
+    } catch (error) {
+      console.error("Session Error:", error);
+      res.status(500).json({ message: "Failed to load session" });
+    }
   });
 
   // Submit Review

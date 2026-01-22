@@ -1,0 +1,55 @@
+The app is crashing with "Something went wrong" when clicking Start Session, and the buttons on Home are touching each other. This is likely due to missing imports in the backend and missing margins in the frontend.
+
+Please fix these 2 issues strictly:
+
+**1. Fix Backend Crash (Missing Imports & Logic):**
+* Open `server/routes.ts`.
+* Ensure you import `{ asc, sql }` from `"drizzle-orm"`. (This was likely missing).
+* Completely REPLACE the `GET /api/study/session` route handler with this robust code:
+    ```typescript
+    // Inside server/routes.ts
+    // ... imports ...
+
+    app.get("/api/study/session", async (req, res) => {
+      try {
+        const mode = req.query.mode as string | undefined;
+        
+        let sessionQuestions;
+        
+        if (mode === "random") {
+          // Use SQL random for true shuffling
+          sessionQuestions = await db.select().from(questions).orderBy(sql`RANDOM()`);
+        } else {
+          // Default: Start from ID 1 strictly
+          sessionQuestions = await db.select().from(questions).orderBy(asc(questions.id));
+        }
+
+        // Map to expected format (adding isNew: true as default since we are in simple mode)
+        const result = sessionQuestions.map(q => ({
+          ...q,
+          isNew: true, 
+          progress: undefined // Simplify for now to prevent join errors
+        }));
+
+        res.json(result);
+      } catch (error) {
+        console.error("Session Error:", error);
+        res.status(500).json({ message: "Failed to load session" });
+      }
+    });
+    ```
+
+**2. Fix UI Spacing (Home.tsx):**
+* Open `client/pages/Home.tsx`.
+* Find the **"Random Practice"** button (or the `Link` wrapping it).
+* Add the class `mt-4` (margin-top 4) to its container. It should look like:
+    ```tsx
+    <div className="mt-4">
+      <Link href="/study?mode=random">
+        {/* ... button content ... */}
+      </Link>
+    </div>
+    ```
+* This will add space between "Start Session" and "Random Practice".
+
+**Action:** Apply these fixes and restart the server.
