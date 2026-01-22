@@ -3,6 +3,7 @@ import { BookOpen, Calendar, Trophy, ArrowRight, Flag, Zap, Flame, AlertCircle }
 import { Navigation } from "@/components/Navigation";
 import { useStudyStats } from "@/hooks/use-study";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 export default function Home() {
   const { data: stats, isLoading } = useStudyStats();
@@ -80,19 +81,6 @@ export default function Home() {
                 Continue Learning
               </motion.button>
             </Link>
-
-            {stats && stats.hardCount > 0 && (
-              <Link href="/study?mode=hard">
-                <motion.button
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 border-2 border-rose-100 p-6 rounded-2xl font-display font-bold text-xl flex items-center justify-center gap-3 transition-all"
-                >
-                  <Zap className="w-6 h-6 fill-rose-500" />
-                  Review {stats.hardCount} Weak Items
-                </motion.button>
-              </Link>
-            )}
           </div>
         </section>
 
