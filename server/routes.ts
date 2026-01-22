@@ -5,6 +5,9 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { questions as questionsSchema } from "@shared/schema"; // For typing if needed
 import { addDays, addMinutes } from "date-fns";
+import { CIVICS_DATA } from "./civics_data";
+import { db } from "./db";
+import { questions } from "@shared/schema";
 
 // SM-2 Algorithm Implementation
 function calculateSM2(
@@ -50,9 +53,23 @@ export async function registerRoutes(
   
   // === API Routes ===
 
+  app.post("/api/seed", async (req, res) => {
+    try {
+      // Clear all progress and questions (reset everything)
+      const { userProgress } = await import("@shared/schema");
+      await db.delete(userProgress);
+      await db.delete(questions);
+      // Insert all from CIVICS_DATA
+      await db.insert(questions).values(CIVICS_DATA);
+      res.json({ message: "Database seeded successfully with 100 questions" });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   app.get(api.questions.list.path, async (req, res) => {
-    const questions = await storage.getQuestions();
-    res.json(questions);
+    const allQuestions = await storage.getQuestions();
+    res.json(allQuestions);
   });
 
   app.post(api.questions.create.path, async (req, res) => {
@@ -63,6 +80,18 @@ export async function registerRoutes(
 
   // Study Session: Get mixed batch of Due + New
   app.get(api.study.session.path, async (req, res) => {
+    const { mode } = req.query;
+    
+    if (mode === 'random') {
+      const allQuestions = await storage.getQuestions();
+      // Fisher-Yates shuffle
+      for (let i = allQuestions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allQuestions[i], allQuestions[j]] = [allQuestions[j], allQuestions[i]];
+      }
+      return res.json(allQuestions.map(q => ({ ...q, isNew: true })));
+    }
+
     // 1. Get Due Items
     const dueItems = await storage.getDueQuestions(100); 
     

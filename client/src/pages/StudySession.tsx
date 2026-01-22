@@ -76,16 +76,28 @@ export default function StudySession() {
           <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
             <span className="text-4xl">🎉</span>
           </div>
-          <h2 className="text-3xl font-display font-bold text-primary mb-2">Session Complete!</h2>
+          <h2 className="text-3xl font-display font-bold text-primary mb-2">Session Summary</h2>
           <p className="text-muted-foreground mb-8 text-lg">
-            You reviewed {completedCount} cards today. Great job keeping up with your daily goals.
+            You reviewed {completedCount} cards in this session. Great job keeping up with your studies!
           </p>
-          <Button 
-            className="w-full h-14 text-lg rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform"
-            onClick={() => setLocation("/")}
-          >
-            Back to Home
-          </Button>
+          <div className="space-y-3">
+            <Button 
+              className="w-full h-14 text-lg rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform"
+              onClick={() => {
+                setCurrentIndex(0);
+                setCompletedCount(0);
+              }}
+            >
+              Restart Session
+            </Button>
+            <Button 
+              variant="outline"
+              className="w-full h-14 text-lg rounded-2xl border-2"
+              onClick={() => setLocation("/")}
+            >
+              Back to Home
+            </Button>
+          </div>
         </motion.div>
       </div>
     );

@@ -1,0 +1,28 @@
+I have manually created a file named `server/civics_data.ts` which exports a constant `CIVICS_DATA`. This array contains all 100 questions, fully formatted with the correct schema, including a pre-filled `keywords` field (JSON string) for vocabulary.
+
+Please upgrade the app to the full version by performing the following 4 steps strictly:
+
+1. **Database Seeding (Use provided data):**
+   - Update `server/routes.ts` to add a new route: `POST /api/seed`.
+   - Import `CIVICS_DATA` from `../civics_data`.
+   - In the route handler, first clear the `questions` table (optional but safer), and then insert ALL items from `CIVICS_DATA` into the `questions` table using `db.insert(questions).values(...)`.
+   - Do NOT try to parse `civic100_json.txt` or generate keywords using AI. Use the data exactly as exported in `CIVICS_DATA`.
+
+2. **Backend Logic (Random & Reset):**
+   - Update the `GET /api/study/session` endpoint in `server/routes.ts`.
+   - Add support for a query parameter `?mode=random`.
+   - If `mode=random`, fetch ALL questions from the DB and shuffle them using a randomization algorithm (like Fisher-Yates).
+   - If `mode` is not random, return them in ID order.
+   - Remove any limit (e.g., `.limit(10)`) so the user can study all 100 questions.
+
+3. **Frontend Improvements (Home & Session):**
+   - **Home.tsx:** Add a "Random Practice" button below the "Start Session" button. It should link to `/study?mode=random`.
+   - **StudySession.tsx:** - Read the `mode` query parameter.
+     - **Infinite Loop Fix:** When `isFinished` becomes true (user finishes cards), show a "Session Summary" card instead of just ending. This card must have two buttons: "Restart Session" (which resets the index to 0 so they can loop again) and "Back to Home".
+     - Ensure the `keywords` prop is passed down to the `Flashcard` component.
+
+4. **Frontend Flashcard (Vocabulary & TTS):**
+   - **Flashcard.tsx:** Update the "Back" (Answer) side of the card. Below the answer text, parse the `keywords` JSON string. Render the list of vocabulary words (English word - Korean definition).
+   - **TTS:** Next to each English vocabulary word, add a small speaker icon (Lucide `Volume2`). When clicked, it should trigger `window.speechSynthesis` to read *only* that English word.
+
+After implementing the code, please immediately trigger the `/api/seed` route (or run the script) to populate the database with the 100 questions.
