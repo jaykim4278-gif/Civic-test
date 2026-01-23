@@ -1,5 +1,5 @@
-import { Link } from "wouter";
-import { BookOpen, Trophy, Zap, Flame } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { BookOpen, Trophy, Zap, Flame, ArrowRight } from "lucide-react";
 import { Navigation } from "@/components/Navigation";
 import { useStudyStats } from "@/hooks/use-study";
 import { motion } from "framer-motion";
@@ -8,13 +8,21 @@ import { useState } from "react";
 
 export default function Home() {
   const { data: stats, isLoading } = useStudyStats();
-  const [startInput, setStartInput] = useState("");
+  const [jumpInput, setJumpInput] = useState("");
+  const [, setLocation] = useLocation();
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-12 w-12 border-b-2 border-primary rounded-full"/></div>;
 
   const masteryPercent = stats ? Math.round((stats.masteredCount / stats.totalQuestions) * 100) : 0;
   const streak = stats?.currentStreak || 0;
-  const nextQ = stats?.nextQuestionId || 1;
+  // Fallback to 1 if completed or error
+  const nextQ = stats?.nextQuestionId || 1; 
+
+  const handleJump = () => {
+    if (jumpInput) {
+      setLocation(`/study?startId=${jumpInput}`);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-8">
@@ -29,8 +37,10 @@ export default function Home() {
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-8 space-y-10">
+        {/* Dashboard Card */}
         <section className="bg-white rounded-[2.5rem] p-8 border-2 border-slate-100 shadow-xl flex flex-col md:flex-row items-center gap-12">
-          {/* Progress Circle */}
+          
+          {/* Progress Ring */}
           <div className="relative w-48 h-48 flex items-center justify-center shrink-0">
             <svg className="w-full h-full -rotate-90">
               <circle cx="96" cy="96" r="88" fill="transparent" stroke="currentColor" strokeWidth="12" className="text-slate-100" />
@@ -42,15 +52,18 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Buttons Area */}
+          {/* Action Buttons */}
           <div className="flex-1 w-full space-y-4">
-            <Link href={`/study?startId=${startInput || nextQ}`}>
+            
+            {/* 1. Main Resume Button */}
+            <Link href={`/study?startId=${nextQ}`}>
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white p-5 rounded-2xl font-bold text-xl shadow-lg flex items-center justify-center gap-3">
-                <BookOpen className="w-6 h-6" />
-                {startInput ? `Start from #${startInput}` : `Continue Learning (Q${nextQ})`}
+                < BookOpen className="w-6 h-6" />
+                Continue Learning (Q{nextQ})
               </motion.button>
             </Link>
 
+            {/* 2. Random Practice */}
             <Link href="/study?mode=random">
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full bg-white hover:bg-slate-50 text-slate-600 border-2 border-slate-200 p-5 rounded-2xl font-bold text-xl flex items-center justify-center gap-3">
                 <Zap className="w-6 h-6 text-orange-500" />
@@ -58,13 +71,32 @@ export default function Home() {
               </motion.button>
             </Link>
 
-            <div className="pt-2 flex flex-col items-center gap-2">
-              <label className="text-[10px] font-bold uppercase text-slate-400">Or jump to question #:</label>
-              <input type="number" value={startInput} onChange={(e) => setStartInput(e.target.value)} placeholder="1-100" className="w-24 text-center p-2 rounded-xl border-2 border-slate-100 focus:border-emerald-500 outline-none font-bold text-slate-700" />
+            {/* 3. Explicit Jump Section */}
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-center gap-3">
+              <span className="text-xs font-bold uppercase text-slate-400">Jump to:</span>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-400">#</span>
+                <input 
+                  type="number" 
+                  value={jumpInput} 
+                  onChange={(e) => setJumpInput(e.target.value)} 
+                  placeholder="10" 
+                  className="w-16 text-center p-2 rounded-xl border-2 border-slate-200 focus:border-emerald-500 outline-none font-bold text-slate-700 bg-slate-50" 
+                />
+                <button 
+                  onClick={handleJump}
+                  disabled={!jumpInput}
+                  className="bg-slate-800 text-white p-2 rounded-xl disabled:opacity-50 hover:bg-slate-700 transition-colors"
+                >
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </div>
             </div>
+
           </div>
         </section>
 
+        {/* Library Links */}
         <section>
           <h3 className="text-2xl font-bold text-slate-800 mb-6 px-2">Library</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -83,7 +115,6 @@ export default function Home() {
           </div>
         </section>
       </main>
-
       <Navigation />
     </div>
   );
