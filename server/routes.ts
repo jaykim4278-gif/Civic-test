@@ -9,31 +9,53 @@ import { db } from "./db";
 import { asc, sql, eq, lt, desc, gte } from "drizzle-orm";
 import { questions, userProgress } from "@shared/schema";
 
-function calculateSM2(quality: number, previousInterval: number, previousEaseFactor: number, reviewCount: number) {
+// SM-2 Algorithm Implementation
+function calculateSM2(
+  quality: number,
+  previousInterval: number,
+  previousEaseFactor: number,
+  reviewCount: number
+) {
   let interval: number;
   let easeFactor: number;
+
+  // Quality: 0-5 (Hard=1, Good=3, Easy=5)
   if (quality >= 3) {
-    if (reviewCount === 0) interval = 1;
-    else if (reviewCount === 1) interval = 6;
-    else interval = Math.round(previousInterval * previousEaseFactor);
+    if (reviewCount === 0) {
+      interval = 1;
+    } else if (reviewCount === 1) {
+      interval = 6;
+    } else {
+      interval = Math.round(previousInterval * previousEaseFactor);
+    }
     reviewCount += 1;
   } else {
+    // If Hard, reset review count to force re-learning, but interval stays short
     reviewCount = 0;
-    interval = 1;
+    interval = 1; 
   }
+
+  // Update Ease Factor
   easeFactor = previousEaseFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
   if (easeFactor < 1.3) easeFactor = 1.3;
+
   return { interval, easeFactor, reviewCount };
 }
 
-export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
+export async function registerRoutes(
+  httpServer: Server,
+  app: Express
+): Promise<Server> {
+  
+  // === API Routes ===
+
+  // Force Reset (Manual Seed)
   app.post("/api/seed", async (req, res) => {
     try {
-      const { userProgress } = await import("@shared/schema");
       await db.delete(userProgress);
       await db.delete(questions);
       await db.insert(questions).values(CIVICS_DATA);
-      res.json({ message: "Database seeded successfully" });
+      res.json({ message: "Database reset and seeded successfully." });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -48,40 +70,73 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const mode = req.query.mode as string | undefined;
       const startId = parseInt(req.query.startId as string) || undefined;
+      
       let sessionQuestions;
-
+      
       if (mode === "random") {
+        // Random Mode: Shuffle all
         sessionQuestions = await db.select().from(questions).orderBy(sql`RANDOM()`);
       } else {
-        // Default (Ordered): Support startId
+        // Linear Mode: Respect startId if provided
         let query = db.select().from(questions);
         if (startId) {
           query = query.where(gte(questions.id, startId)) as any;
         }
         sessionQuestions = await query.orderBy(asc(questions.id));
       }
-      const result = sessionQuestions.map(q => ({ ...q, isNew: true, progress: undefined }));
+
+      const result = sessionQuestions.map(q => ({
+        ...q,
+        isNew: true, 
+        progress: undefined
+      }));
+
       res.json(result);
     } catch (error) {
+      console.error("Session Error:", error);
       res.status(500).json({ message: "Failed to load session" });
     }
   });
 
   app.post(api.study.review.path, async (req, res) => {
     const { questionId, quality } = api.study.review.input.parse(req.body);
-    const currentProgress = await storage.getUserProgress(questionId);
     
+    // Get existing progress
+    const results = await db.select().from(userProgress).where(eq(userProgress.questionId, questionId));
+    const currentProgress = results[0];
+    
+    const previousInterval = currentProgress?.interval ?? 0;
+    const previousEaseFactor = currentProgress?.easeFactor ?? 2.5;
+    const previousReviewCount = currentProgress?.reviewCount ?? 0;
+
     const { interval, easeFactor, reviewCount } = calculateSM2(
       quality,
-      currentProgress?.interval ?? 0,
-      currentProgress?.easeFactor ?? 2.5,
-      currentProgress?.reviewCount ?? 0
+      previousInterval,
+      previousEaseFactor,
+      previousReviewCount
     );
 
-    const updated = await storage.updateUserProgress({
-      questionId, interval, easeFactor, reviewCount, nextReviewDate: addDays(new Date(), interval)
-    });
-    res.json({ nextReviewDate: updated.nextReviewDate.toISOString(), interval: updated.interval });
+    // Upsert Progress
+    if (currentProgress) {
+        await db.update(userProgress).set({
+            interval,
+            easeFactor,
+            reviewCount,
+            nextReviewDate: addDays(new Date(), interval),
+            lastReviewedAt: new Date()
+        }).where(eq(userProgress.id, currentProgress.id));
+    } else {
+        await db.insert(userProgress).values({
+            questionId,
+            interval,
+            easeFactor,
+            reviewCount,
+            nextReviewDate: addDays(new Date(), interval),
+            lastReviewedAt: new Date()
+        });
+    }
+
+    res.json({ success: true });
   });
 
   app.get(api.study.stats.path, async (req, res) => {
@@ -89,43 +144,79 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const allQuestions = await db.select().from(questions).orderBy(asc(questions.id));
       const totalQuestions = allQuestions.length;
 
-      // Get ALL progress records to find what has been touched at all
+      // Fetch ALL progress to determine what has been touched
       const allProgress = await db.select().from(userProgress);
-      const touchedIds = allProgress.map(p => p.questionId);
+      const touchedIds = new Set(allProgress.map(p => p.questionId));
 
-      // Mastered = actually learned (reviewCount > 0)
-      const masteredCount = allProgress.filter(p => p.reviewCount > 0).length;
-      
-      // Hard Count
-      const hardCount = allProgress.filter(p => p.easeFactor < 2.5).length;
-
-      // Next Question: Find the lowest ID that has NEVER been touched (not in userProgress)
-      const nextQuestion = allQuestions.find(q => !touchedIds.includes(q.id));
-      // If all touched, default to 1, otherwise the first new one
+      // Calculate Next Question ID:
+      // Find the first question in the sorted list that has NOT been touched yet.
+      const nextQuestion = allQuestions.find(q => !touchedIds.has(q.id));
+      // If all are touched, loop to 1, else use the found ID.
       const nextQuestionId = nextQuestion ? nextQuestion.id : 1;
 
-      // Streak Logic
-      const reviews = await db.select({ date: sql`DISTINCT DATE(${userProgress.lastReviewedAt})` })
-        .from(userProgress).orderBy(desc(sql`DATE(${userProgress.lastReviewedAt})`));
+      // Mastered: Only count items with high ease factor or multiple reviews
+      const masteredCount = allProgress.filter(p => p.reviewCount > 0 && p.easeFactor > 2.0).length;
       
+      // Streak Logic
+      const reviews = await db.select({
+        date: sql`DISTINCT DATE(${userProgress.lastReviewedAt})`
+      })
+      .from(userProgress)
+      .orderBy(desc(sql`DATE(${userProgress.lastReviewedAt})`));
+
       let currentStreak = 0;
       if (reviews.length > 0) {
         let checkDate = new Date();
         checkDate.setHours(0,0,0,0);
+        
         for (const review of reviews) {
           const rDate = new Date(review.date as string);
           rDate.setHours(0,0,0,0);
           const diff = Math.floor((checkDate.getTime() - rDate.getTime()) / 86400000);
-          if (diff <= 1) { currentStreak++; checkDate = rDate; } else break;
+          
+          if (diff <= 1) { // Today or Yesterday
+            currentStreak++;
+            checkDate = rDate; // Move reference back
+          } else {
+            break;
+          }
         }
       }
 
-      res.json({ totalQuestions, masteredCount, currentStreak, hardCount, nextQuestionId, totalLearned: masteredCount, dueToday: 0 });
+      res.json({
+        totalQuestions,
+        masteredCount,
+        currentStreak,
+        hardCount: 0, 
+        nextQuestionId, // This is the crucial fix
+        totalLearned: touchedIds.size, 
+        dueToday: 0
+      });
     } catch (error) {
+      console.error("Stats Error:", error);
       res.status(500).json({ message: "Failed to load stats" });
     }
   });
 
-  await storage.seedQuestions([]); 
+  // Safe Seeding on Startup
+  await seedDatabase();
+
   return httpServer;
+}
+
+async function seedDatabase() {
+  try {
+    // Check if data exists
+    const countResult = await db.select({ count: sql<number>`count(*)` }).from(questions);
+    const count = Number(countResult[0]?.count || 0);
+
+    if (count === 0) {
+      console.log("Database empty, seeding...");
+      await db.insert(questions).values(CIVICS_DATA);
+    } else {
+      console.log("Database already seeded, skipping.");
+    }
+  } catch (e) {
+    console.error("Seed error:", e);
+  }
 }
