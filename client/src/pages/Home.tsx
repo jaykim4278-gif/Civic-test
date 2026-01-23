@@ -81,6 +81,17 @@ export default function Home() {
                 Continue Learning
               </motion.button>
             </Link>
+
+            <Link href="/study?mode=random">
+              <motion.button
+                whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full bg-white hover:bg-slate-50 text-slate-600 border-2 border-slate-200 p-6 rounded-2xl font-display font-bold text-xl flex items-center justify-center gap-3 transition-all"
+              >
+                <Zap className="w-6 h-6 text-orange-500" />
+                Random Practice
+              </motion.button>
+            </Link>
           </div>
         </section>
 

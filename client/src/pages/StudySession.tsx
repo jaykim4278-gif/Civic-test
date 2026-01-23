@@ -161,6 +161,13 @@ export default function StudySession() {
             />
           </motion.div>
         </AnimatePresence>
+
+        <button
+          onClick={handleQuit}
+          className="mt-12 text-slate-400 hover:text-rose-500 font-medium text-sm transition-colors flex items-center gap-2"
+        >
+          Stop Studying (Save & Quit)
+        </button>
       </main>
 
       {/* Floating Background Elements */}

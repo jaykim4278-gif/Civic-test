@@ -237,9 +237,9 @@ export const CIVICS_DATA = [
     id: 20,
     category: "American Government - System of Government",
     question: "Who is one of your state’s U.S. Senators now?",
-    answer: "Answers will vary.",
+    answer: "John Cornyn and Ted Cruz",
     translation:
-      "현재 당신의 주의 미국 상원의원 중 한 명은 누구입니까? - (거주지에 따라 답이 다릅니다)",
+      "현재 당신의 주의 미국 상원의원 중 한 명은 누구입니까? - 존 코닌 또는 테드 크루즈",
     keywords: JSON.stringify([
       { word: "State", definition: "주(State)" },
       { word: "Vary", definition: "다르다/다양하다" },
@@ -321,8 +321,8 @@ export const CIVICS_DATA = [
     id: 28,
     category: "American Government - System of Government",
     question: "What is the name of the President of the United States now?",
-    answer: "Visit uscis.gov for current name.",
-    translation: "현재 미국 대통령의 이름은 무엇입니까? - (현재 대통령 이름)",
+    answer: "Donald Trump",
+    translation: "현재 미국 대통령의 이름은 무엇입니까? - 도널드 트럼프",
     keywords: JSON.stringify([{ word: "Current", definition: "현재의" }]),
   },
   {
@@ -330,8 +330,8 @@ export const CIVICS_DATA = [
     category: "American Government - System of Government",
     question:
       "What is the name of the Vice President of the United States now?",
-    answer: "Visit uscis.gov for current name.",
-    translation: "현재 미국 부통령의 이름은 무엇입니까? - (현재 부통령 이름)",
+    answer: "J.D. Vance",
+    translation: "현재 미국 부통령의 이름은 무엇입니까? - J.D. 밴스",
     keywords: JSON.stringify([
       { word: "Vice President", definition: "부통령" },
     ]),
@@ -445,16 +445,16 @@ export const CIVICS_DATA = [
     id: 39,
     category: "American Government - System of Government",
     question: "How many justices are on the Supreme Court?",
-    answer: "Visit uscis.gov for current number.",
-    translation: "대법원에는 몇 명의 대법관이 있습니까? - (현재 대법관 수)",
+    answer: "nine (9)",
+    translation: "대법원에는 몇 명의 대법관이 있습니까? - 9명",
     keywords: JSON.stringify([{ word: "Justices", definition: "대법관/판사" }]),
   },
   {
     id: 40,
     category: "American Government - System of Government",
     question: "Who is the Chief Justice of the United States now?",
-    answer: "Visit uscis.gov for current name.",
-    translation: "현재 미국 대법원장은 누구입니까? - (현재 대법원장 이름)",
+    answer: "John Roberts",
+    translation: "현재 미국 대법원장은 누구입니까? - 존 로버츠",
     keywords: JSON.stringify([
       { word: "Chief Justice", definition: "대법원장" },
     ]),
@@ -494,18 +494,16 @@ export const CIVICS_DATA = [
     id: 43,
     category: "American Government - System of Government",
     question: "Who is the Governor of your state now?",
-    answer: "Answers will vary.",
-    translation:
-      "현재 당신이 거주하는 주의 주지사는 누구입니까? - (거주지에 따라 답이 다릅니다)",
+    answer: "Greg Abbott",
+    translation: "현재 당신이 거주하는 주의 주지사는 누구입니까? - 그렉 애벗",
     keywords: JSON.stringify([{ word: "Governor", definition: "주지사" }]),
   },
   {
     id: 44,
     category: "American Government - System of Government",
     question: "What is the capital of your state?",
-    answer: "Answers will vary.",
-    translation:
-      "당신이 거주하는 주의 수도는 어디입니까? - (거주지에 따라 답이 다릅니다)",
+    answer: "Austin",
+    translation: "당신이 거주하는 주의 수도는 어디입니까? - 오스틴",
     keywords: JSON.stringify([{ word: "Capital", definition: "수도" }]),
   },
   {
@@ -525,8 +523,8 @@ export const CIVICS_DATA = [
     id: 46,
     category: "American Government - System of Government",
     question: "What is the political party of the President now?",
-    answer: "Visit uscis.gov for current party.",
-    translation: "현재 대통령의 소속 정당은 무엇입니까? - (현재 정당)",
+    answer: "Republican",
+    translation: "현재 대통령의 소속 정당은 무엇입니까? - 공화당",
     keywords: JSON.stringify([{ word: "Party", definition: "정당" }]),
   },
   {
@@ -534,8 +532,8 @@ export const CIVICS_DATA = [
     category: "American Government - System of Government",
     question:
       "What is the name of the Speaker of the House of Representatives now?",
-    answer: "Visit uscis.gov for current name.",
-    translation: "현재 하원의장의 이름은 무엇입니까? - (현재 하원의장 이름)",
+    answer: "Mike Johnson",
+    translation: "현재 하원의장의 이름은 무엇입니까? - 마이크 존슨",
     keywords: JSON.stringify([{ word: "Speaker", definition: "의장" }]),
   },
   {
