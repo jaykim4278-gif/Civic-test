@@ -82,6 +82,7 @@ export async function registerRoutes(
   app.get("/api/study/session", async (req, res) => {
     try {
       const mode = req.query.mode as string | undefined;
+      const startId = parseInt(req.query.startId as string) || undefined;
       
       let sessionQuestions;
       
@@ -100,8 +101,12 @@ export async function registerRoutes(
         // Use SQL random for true shuffling
         sessionQuestions = await db.select().from(questions).orderBy(sql`RANDOM()`);
       } else {
-        // Default: Start from ID 1 strictly
-        sessionQuestions = await db.select().from(questions).orderBy(asc(questions.id));
+        // Default: ID order, optional startId
+        let query = db.select().from(questions);
+        if (startId) {
+          query = query.where(gte(questions.id, startId)) as any;
+        }
+        sessionQuestions = await query.orderBy(asc(questions.id));
       }
 
       // Map to expected format
@@ -158,14 +163,14 @@ export async function registerRoutes(
   app.get(api.study.stats.path, async (req, res) => {
     try {
       // 1. Total Questions
-      const allQuestions = await db.select().from(questions);
+      const allQuestions = await db.select().from(questions).orderBy(asc(questions.id));
       const totalQuestions = allQuestions.length;
 
-      // 2. Mastered Count (easeFactor > 2.5)
-      const mastered = await db.select()
+      // 2. Studied Count (reviewCount > 0)
+      const studied = await db.select()
         .from(userProgress)
-        .where(gte(userProgress.easeFactor, 2.5));
-      const masteredCount = mastered.length;
+        .where(sql`${userProgress.reviewCount} > 0`);
+      const masteredCount = studied.length;
 
       // 3. Hard Count (easeFactor < 2.5)
       const hards = await db.select()
@@ -173,7 +178,12 @@ export async function registerRoutes(
         .where(lt(userProgress.easeFactor, 2.5));
       const hardCount = hards.length;
 
-      // 4. Current Streak
+      // 4. Next Question ID (lowest ID not in userProgress)
+      const progressIds = studied.map(p => p.questionId);
+      const nextQuestion = allQuestions.find(q => !progressIds.includes(q.id));
+      const nextQuestionId = nextQuestion ? nextQuestion.id : 1;
+
+      // 5. Current Streak
       const reviews = await db.select({
         date: sql`DISTINCT DATE(${userProgress.lastReviewedAt})`
       })
@@ -206,8 +216,9 @@ export async function registerRoutes(
         masteredCount,
         currentStreak,
         hardCount,
-        totalLearned: reviews.length, // Fallback for existing UI if needed
-        dueToday: 0 // Simplified for now
+        nextQuestionId,
+        totalLearned: masteredCount,
+        dueToday: 0
       });
     } catch (error) {
       console.error("Stats Error:", error);

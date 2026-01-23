@@ -4,9 +4,11 @@ import { Navigation } from "@/components/Navigation";
 import { useStudyStats } from "@/hooks/use-study";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 export default function Home() {
   const { data: stats, isLoading } = useStudyStats();
+  const [startInput, setStartInput] = useState("");
 
   if (isLoading) {
     return (
@@ -71,14 +73,14 @@ export default function Home() {
 
           {/* Right: Action Buttons */}
           <div className="flex-1 w-full space-y-4">
-            <Link href="/study">
+            <Link href={`/study?startId=${startInput || stats?.nextQuestionId || 1}`}>
               <motion.button
                 whileHover={{ scale: 1.02, y: -2 }}
                 whileTap={{ scale: 0.98 }}
                 className="w-full bg-emerald-500 hover:bg-emerald-600 text-white p-6 rounded-2xl font-display font-bold text-xl shadow-lg shadow-emerald-200 flex items-center justify-center gap-3 transition-all"
               >
                 <BookOpen className="w-6 h-6" />
-                Continue Learning
+                {startInput ? `Start from #${startInput}` : `Continue Learning (Q${stats?.nextQuestionId || 1})`}
               </motion.button>
             </Link>
 
@@ -92,6 +94,17 @@ export default function Home() {
                 Random Practice
               </motion.button>
             </Link>
+
+            <div className="pt-2 flex flex-col items-center gap-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Or jump to question #:</label>
+              <input 
+                type="number" 
+                value={startInput}
+                onChange={(e) => setStartInput(e.target.value)}
+                placeholder="1-100"
+                className="w-20 text-center p-2 rounded-xl border-2 border-slate-100 focus:border-emerald-500 focus:outline-none font-bold text-slate-700"
+              />
+            </div>
           </div>
         </section>
 

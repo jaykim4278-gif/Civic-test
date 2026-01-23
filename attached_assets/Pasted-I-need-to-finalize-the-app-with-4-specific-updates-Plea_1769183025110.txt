@@ -1,0 +1,32 @@
+I need to finalize the app with 4 specific updates. Please strictly follow these steps:
+
+**1. Update Backend Logic (`server/routes.ts`):**
+* **Fix Stats Logic:** In `GET /api/study/stats`, change the calculation of `masteredCount`.
+    * Instead of checking `easeFactor`, simply count how many unique questions have `reviewCount > 0` (i.e., user has studied them at least once).
+    * Also, calculate `nextQuestionId`: Find the lowest `id` in `questions` table that does NOT exist in `userProgress`. If all studied, default to 1.
+    * Return JSON: `{ ..., masteredCount, nextQuestionId }`.
+* **Fix Session Logic:** In `GET /api/study/session`, add support for `req.query.startId`.
+    * If `startId` is provided (and mode is NOT random/hard), update the query to start from that ID: `.where(gte(questions.id, startId))`.
+    * Ensure it still orders by ASC ID.
+
+**2. Update Dashboard UI (`client/pages/Home.tsx`):**
+* **Fix Spacing:** Ensure the container holding the two big buttons has `space-y-4` or `gap-4` so they don't touch.
+* **Implement "Resume & Jump":**
+    * Create a state `startInput` defaulting to empty string.
+    * **"Continue Learning" Button:**
+        * Change the link to: `/study?startId=${startInput || stats?.nextQuestionId || 1}`.
+        * Change text to: `startInput ? "Start from #" + startInput : "Continue Learning (Q" + (stats?.nextQuestionId || 1) + ")"`
+    * **Input Field:** Add a small input field below the buttons:
+        * Label: "Or jump to question #:"
+        * Style: Small, centered, clean input.
+* **Progress Ring:** Ensure it uses the new `masteredCount` (studied count) so the user sees progress immediately after studying.
+
+**3. Apply Data Updates:**
+* **Trigger Seeding:** I have updated `server/civics_data.ts` manually. You MUST execute the logic of `POST /api/seed` (clear DB and re-insert CIVICS_DATA) immediately after applying the code changes to ensure the DB reflects my file changes.
+
+**Summary:**
+1. Stats now counts "Studied" items (fixes 0% bug).
+2. Stats calculates "Next ID".
+3. Home UI adds spacing and a "Jump to #" input.
+4. "Continue" button intelligently resumes progress.
+5. DB is re-seeded with latest data.
