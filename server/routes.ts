@@ -19,23 +19,16 @@ function calculateSM2(
   let interval: number;
   let easeFactor: number;
 
-  // Quality: 0-5 (Hard=1, Good=3, Easy=5)
   if (quality >= 3) {
-    if (reviewCount === 0) {
-      interval = 1;
-    } else if (reviewCount === 1) {
-      interval = 6;
-    } else {
-      interval = Math.round(previousInterval * previousEaseFactor);
-    }
+    if (reviewCount === 0) interval = 1;
+    else if (reviewCount === 1) interval = 6;
+    else interval = Math.round(previousInterval * previousEaseFactor);
     reviewCount += 1;
   } else {
-    // If Hard, reset review count to force re-learning, but interval stays short
     reviewCount = 0;
     interval = 1; 
   }
 
-  // Update Ease Factor
   easeFactor = previousEaseFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
   if (easeFactor < 1.3) easeFactor = 1.3;
 
@@ -47,8 +40,6 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
-  // === API Routes ===
-
   // Force Reset (Manual Seed)
   app.post("/api/seed", async (req, res) => {
     try {
@@ -71,9 +62,11 @@ export async function registerRoutes(
 
   app.get("/api/study/session", async (req, res) => {
     try {
+      // Disable Cache for Session
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      
       const mode = req.query.mode as string | undefined;
       const startId = parseInt(req.query.startId as string) || undefined;
-      
       let sessionQuestions;
       
       if (mode === "random") {
@@ -86,12 +79,7 @@ export async function registerRoutes(
         sessionQuestions = await query.orderBy(asc(questions.id));
       }
 
-      const result = sessionQuestions.map(q => ({
-        ...q,
-        isNew: true, 
-        progress: undefined
-      }));
-
+      const result = sessionQuestions.map(q => ({ ...q, isNew: true, progress: undefined }));
       res.json(result);
     } catch (error) {
       console.error("Session Error:", error);
@@ -99,21 +87,16 @@ export async function registerRoutes(
     }
   });
 
-  // === CRITICAL FIX: SAVING PROGRESS ===
   app.post(api.study.review.path, async (req, res) => {
     try {
       const { questionId, quality } = api.study.review.input.parse(req.body);
-      
       console.log(`[Review] Received for Q${questionId}, Quality: ${quality}`);
 
-      // 1. Get existing progress using Storage
       const currentProgress = await storage.getUserProgress(questionId);
-      
       const previousInterval = currentProgress?.interval ?? 0;
       const previousEaseFactor = currentProgress?.easeFactor ?? 2.5;
       const previousReviewCount = currentProgress?.reviewCount ?? 0;
 
-      // 2. Calculate SM-2
       const { interval, easeFactor, reviewCount } = calculateSM2(
         quality,
         previousInterval,
@@ -121,7 +104,6 @@ export async function registerRoutes(
         previousReviewCount
       );
 
-      // 3. Save using Storage (Reliable Upsert)
       await storage.updateUserProgress({
         questionId,
         interval,
@@ -131,9 +113,8 @@ export async function registerRoutes(
         lastReviewedAt: new Date()
       });
 
-      console.log(`[Review] Saved Q${questionId}. New Interval: ${interval} days.`);
+      console.log(`[Review] Saved Q${questionId}. New Interval: ${interval}`);
       res.json({ success: true });
-
     } catch (error) {
       console.error("[Review] Save Failed:", error);
       res.status(500).json({ message: "Failed to save progress" });
@@ -142,30 +123,24 @@ export async function registerRoutes(
 
   app.get(api.study.stats.path, async (req, res) => {
     try {
+      // CRITICAL FIX: Disable Caching for Stats
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      
       const allQuestions = await db.select().from(questions).orderBy(asc(questions.id));
       const totalQuestions = allQuestions.length;
 
-      // Fetch ALL progress
       const allProgress = await db.select().from(userProgress);
-      // Create a Set of all question IDs that have EVER been reviewed/touched
       const touchedIds = new Set(allProgress.map(p => p.questionId));
 
-      // Calculate Next Question ID:
-      // Simply find the first ID in the sorted list that is NOT in the touched set.
       const nextQuestion = allQuestions.find(q => !touchedIds.has(q.id));
       const nextQuestionId = nextQuestion ? nextQuestion.id : 1;
 
       console.log(`[Stats] Total: ${totalQuestions}, Touched: ${touchedIds.size}, Next Q: ${nextQuestionId}`);
 
-      // Mastered count (for graph)
       const masteredCount = allProgress.filter(p => p.reviewCount > 0 && p.easeFactor > 2.0).length;
       
-      // Streak Calculation
-      const reviews = await db.select({
-        date: sql`DISTINCT DATE(${userProgress.lastReviewedAt})`
-      })
-      .from(userProgress)
-      .orderBy(desc(sql`DATE(${userProgress.lastReviewedAt})`));
+      const reviews = await db.select({ date: sql`DISTINCT DATE(${userProgress.lastReviewedAt})` })
+        .from(userProgress).orderBy(desc(sql`DATE(${userProgress.lastReviewedAt})`));
 
       let currentStreak = 0;
       if (reviews.length > 0) {
@@ -194,24 +169,13 @@ export async function registerRoutes(
     }
   });
 
-  // Safe Seeding on Startup
-  await seedDatabase();
-
-  return httpServer;
-}
-
-async function seedDatabase() {
+  // Safe Seeding
   try {
     const countResult = await db.select({ count: sql<number>`count(*)` }).from(questions);
-    const count = Number(countResult[0]?.count || 0);
-
-    if (count === 0) {
-      console.log("Database empty, seeding...");
+    if (Number(countResult[0]?.count || 0) === 0) {
       await db.insert(questions).values(CIVICS_DATA);
-    } else {
-      console.log("Database already seeded, skipping.");
     }
-  } catch (e) {
-    console.error("Seed error:", e);
-  }
+  } catch (e) { console.error("Seed error:", e); }
+
+  return httpServer;
 }
