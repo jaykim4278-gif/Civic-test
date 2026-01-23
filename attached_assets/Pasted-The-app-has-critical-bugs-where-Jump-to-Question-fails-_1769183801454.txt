@@ -1,0 +1,275 @@
+The app has critical bugs where "Jump to Question" fails, progress doesn't update, and data is out of sync. This is because the frontend hooks ignore the `startId` parameter.
+
+Please strictly REPLACE the contents of these 4 files with the provided fixed code.
+
+**1. `client/hooks/use-study.ts` (Fix: Pass `startId` to server)**
+* I have updated `useStudySession` to accept an object `{ mode, startId }` and correctly build the query string.
+
+```typescript
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@shared/routes";
+import { z } from "zod";
+
+type StatsResponse = z.infer<typeof api.study.stats.responses[200]>;
+type ReviewInput = z.infer<typeof api.study.review.input>;
+
+export function useStudySession(args?: { mode?: string; startId?: number }) {
+  const { mode, startId } = args || {};
+  return useQuery({
+    queryKey: [api.study.session.path, mode, startId],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (mode) params.append("mode", mode);
+      if (startId) params.append("startId", startId.toString());
+      
+      const url = `${api.study.session.path}?${params.toString()}`;
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch study session");
+      return api.study.session.responses[200].parse(await res.json());
+    },
+    staleTime: Infinity, 
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useStudyStats() {
+  return useQuery({
+    queryKey: [api.study.stats.path],
+    queryFn: async () => {
+      const res = await fetch(api.study.stats.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      return api.study.stats.responses[200].parse(await res.json());
+    },
+  });
+}
+
+export function useSubmitReview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: ReviewInput) => {
+      const validated = api.study.review.input.parse(data);
+      const res = await fetch(api.study.review.path, {
+        method: api.study.review.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(validated),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to submit review");
+      return api.study.review.responses[200].parse(await res.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.study.stats.path] });
+    },
+  });
+}
+
+export function useQuestions() {
+  return useQuery({
+    queryKey: [api.questions.list.path],
+    queryFn: async () => {
+      const res = await fetch(api.questions.list.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch questions");
+      return api.questions.list.responses[200].parse(await res.json());
+    },
+  });
+}
+
+2. client/pages/StudySession.tsx (Fix: Read startId from URL)
+
+I added logic to parse startId from the URL and pass it to the hook.
+
+import { useState } from "react";
+import { useLocation, useSearch } from "wouter";
+import { motion, AnimatePresence } from "framer-motion";
+import { X } from "lucide-react";
+import { useStudySession, useSubmitReview } from "@/hooks/use-study";
+import { Flashcard } from "@/components/Flashcard";
+import { ProgressBar } from "@/components/ProgressBar";
+import { Button } from "@/components/ui/button";
+
+export default function StudySession() {
+  const [, setLocation] = useLocation();
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  
+  const mode = params.get("mode") || undefined;
+  // Parse startId safely
+  const rawStartId = params.get("startId");
+  const startId = rawStartId ? parseInt(rawStartId) : undefined;
+
+  const { data: sessionItems, isLoading, error } = useStudySession({ mode, startId });
+  const { mutate: submitReview, isPending: isSubmitting } = useSubmitReview();
+  
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [completedCount, setCompletedCount] = useState(0);
+
+  const isFinished = sessionItems && currentIndex >= sessionItems.length;
+
+  const handleResult = (quality: number) => {
+    if (!sessionItems) return;
+    const currentItem = sessionItems[currentIndex];
+    setCompletedCount(prev => prev + 1);
+    setCurrentIndex(prev => prev + 1);
+    submitReview({ questionId: currentItem.id, quality });
+  };
+
+  const handleQuit = () => {
+    if (window.confirm("Do you want to save progress and quit?")) {
+      setLocation("/");
+    }
+  };
+
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" /></div>;
+  if (error) return <div className="min-h-screen flex items-center justify-center">Error loading session</div>;
+
+  if (isFinished) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-white p-8 rounded-3xl shadow-xl text-center max-w-md w-full border-2 border-primary/10">
+          <h2 className="text-3xl font-bold text-primary mb-4">Session Complete! 🎉</h2>
+          <p className="text-muted-foreground mb-8">You reviewed {completedCount} cards.</p>
+          <div className="space-y-3">
+            <Button className="w-full h-12" onClick={() => window.location.reload()}>Restart Session</Button>
+            <Button variant="outline" className="w-full h-12" onClick={() => setLocation("/")}>Back to Home</Button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  const currentCard = sessionItems![currentIndex];
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
+      <header className="px-4 py-4 flex items-center gap-4 max-w-4xl mx-auto w-full z-10">
+        <button onClick={handleQuit} className="p-2 -ml-2 text-muted-foreground hover:bg-muted rounded-full"><X className="w-6 h-6" /></button>
+        <ProgressBar current={currentIndex + 1} total={sessionItems!.length} className="flex-1" />
+      </header>
+
+      <main className="flex-1 flex flex-col items-center justify-center px-4 pb-12 w-full max-w-4xl mx-auto">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentCard.id}
+            initial={{ x: 50, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -50, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="w-full"
+          >
+            <Flashcard
+              question={currentCard.question}
+              answer={currentCard.answer}
+              translation={currentCard.translation}
+              keywords={currentCard.keywords}
+              onResult={handleResult}
+              isSubmitting={isSubmitting}
+            />
+          </motion.div>
+        </AnimatePresence>
+        
+        <Button variant="ghost" onClick={handleQuit} className="mt-8 text-slate-400 hover:text-destructive">
+          Stop Studying (Save & Quit)
+        </Button>
+      </main>
+    </div>
+  );
+}
+
+3. client/pages/Home.tsx (Fix: UI Spacing & Logic)
+
+Added space-y-4 to separate the buttons properly.
+
+import { Link } from "wouter";
+import { BookOpen, Trophy, Zap, Flame } from "lucide-react";
+import { Navigation } from "@/components/Navigation";
+import { useStudyStats } from "@/hooks/use-study";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { useState } from "react";
+
+export default function Home() {
+  const { data: stats, isLoading } = useStudyStats();
+  const [startInput, setStartInput] = useState("");
+
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-12 w-12 border-b-2 border-primary rounded-full"/></div>;
+
+  const masteryPercent = stats ? Math.round((stats.masteredCount / stats.totalQuestions) * 100) : 0;
+  const streak = stats?.currentStreak || 0;
+  const nextQ = stats?.nextQuestionId || 1;
+
+  return (
+    <div className="min-h-screen bg-background pb-24 md:pb-8">
+      <header className="bg-white border-b border-border sticky top-0 z-20">
+        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-slate-800">Welcome back! 🇺🇸</h1>
+          <div className={cn("flex items-center gap-2 px-3 py-1.5 rounded-full font-bold text-sm transition-colors", streak > 0 ? "bg-orange-50 text-orange-600" : "bg-slate-100 text-slate-400")}>
+            <Flame className={cn("w-5 h-5", streak > 0 ? "fill-orange-500" : "")} />
+            <span>{streak} Day Streak</span>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-6 py-8 space-y-10">
+        <section className="bg-white rounded-[2.5rem] p-8 border-2 border-slate-100 shadow-xl flex flex-col md:flex-row items-center gap-12">
+          {/* Progress Circle */}
+          <div className="relative w-48 h-48 flex items-center justify-center shrink-0">
+            <svg className="w-full h-full -rotate-90">
+              <circle cx="96" cy="96" r="88" fill="transparent" stroke="currentColor" strokeWidth="12" className="text-slate-100" />
+              <motion.circle cx="96" cy="96" r="88" fill="transparent" stroke="currentColor" strokeWidth="12" strokeDasharray={552.92} initial={{ strokeDashoffset: 552.92 }} animate={{ strokeDashoffset: 552.92 - (552.92 * masteryPercent) / 100 }} className="text-emerald-500" strokeLinecap="round" />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-4xl font-black text-slate-800">{masteryPercent}%</span>
+              <span className="text-[10px] font-bold uppercase text-slate-400">Mastered</span>
+            </div>
+          </div>
+
+          {/* Buttons Area */}
+          <div className="flex-1 w-full space-y-4">
+            <Link href={`/study?startId=${startInput || nextQ}`}>
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white p-5 rounded-2xl font-bold text-xl shadow-lg flex items-center justify-center gap-3">
+                <BookOpen className="w-6 h-6" />
+                {startInput ? `Start from #${startInput}` : `Continue Learning (Q${nextQ})`}
+              </motion.button>
+            </Link>
+
+            <Link href="/study?mode=random">
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full bg-white hover:bg-slate-50 text-slate-600 border-2 border-slate-200 p-5 rounded-2xl font-bold text-xl flex items-center justify-center gap-3">
+                <Zap className="w-6 h-6 text-orange-500" />
+                Random Practice
+              </motion.button>
+            </Link>
+
+            <div className="pt-2 flex flex-col items-center gap-2">
+              <label className="text-[10px] font-bold uppercase text-slate-400">Or jump to question #:</label>
+              <input type="number" value={startInput} onChange={(e) => setStartInput(e.target.value)} placeholder="1-100" className="w-24 text-center p-2 rounded-xl border-2 border-slate-100 focus:border-emerald-500 outline-none font-bold text-slate-700" />
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h3 className="text-2xl font-bold text-slate-800 mb-6 px-2">Library</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Link href="/questions">
+              <div className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm hover:border-blue-100 cursor-pointer transition-colors flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center"><BookOpen className="w-6 h-6" /></div>
+                <div><h4 className="text-lg font-bold text-slate-800">Browse All</h4><p className="text-slate-500 text-sm">View all 100 questions</p></div>
+              </div>
+            </Link>
+            <Link href="/vocabulary">
+              <div className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm hover:border-purple-100 cursor-pointer transition-colors flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-500 flex items-center justify-center"><Trophy className="w-6 h-6" /></div>
+                <div><h4 className="text-lg font-bold text-slate-800">Vocabulary</h4><p className="text-slate-500 text-sm">Master core terms</p></div>
+              </div>
+            </Link>
+          </div>
+        </section>
+      </main>
+      <Navigation />
+    </div>
+  );
+}
+
+4. CRITICAL: Refresh Data
+
+Execute the following command immediately: Trigger a POST request to /api/seed (or run the seed script) to update the database with your latest civics_data.ts changes. This fixes the sync issue.
+

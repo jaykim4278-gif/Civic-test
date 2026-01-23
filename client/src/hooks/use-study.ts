@@ -2,22 +2,23 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import { z } from "zod";
 
-// Types derived from schema
-type StudyItem = z.infer<typeof api.study.session.responses[200]>[number];
 type StatsResponse = z.infer<typeof api.study.stats.responses[200]>;
 type ReviewInput = z.infer<typeof api.study.review.input>;
 
-export function useStudySession(mode?: string) {
+export function useStudySession(args?: { mode?: string; startId?: number }) {
+  const { mode, startId } = args || {};
   return useQuery({
-    queryKey: [api.study.session.path, mode],
+    queryKey: [api.study.session.path, mode, startId],
     queryFn: async () => {
-      const url = mode ? `${api.study.session.path}?mode=${mode}` : api.study.session.path;
+      const params = new URLSearchParams();
+      if (mode) params.append("mode", mode);
+      if (startId) params.append("startId", startId.toString());
+      
+      const url = `${api.study.session.path}?${params.toString()}`;
       const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch study session");
-      // Use schema to parse response
       return api.study.session.responses[200].parse(await res.json());
     },
-    // Don't refetch automatically to keep session stable
     staleTime: Infinity, 
     refetchOnWindowFocus: false,
   });
@@ -36,7 +37,6 @@ export function useStudyStats() {
 
 export function useSubmitReview() {
   const queryClient = useQueryClient();
-  
   return useMutation({
     mutationFn: async (data: ReviewInput) => {
       const validated = api.study.review.input.parse(data);
@@ -46,20 +46,15 @@ export function useSubmitReview() {
         body: JSON.stringify(validated),
         credentials: "include",
       });
-      
       if (!res.ok) throw new Error("Failed to submit review");
       return api.study.review.responses[200].parse(await res.json());
     },
     onSuccess: () => {
-      // Invalidate stats to update "Due Today" counts
       queryClient.invalidateQueries({ queryKey: [api.study.stats.path] });
-      // Note: We deliberately DO NOT invalidate the session query immediately
-      // to prevent the current list of cards from shuffling while the user is studying.
     },
   });
 }
 
-// Hook for fetching all questions (reference/list view)
 export function useQuestions() {
   return useQuery({
     queryKey: [api.questions.list.path],

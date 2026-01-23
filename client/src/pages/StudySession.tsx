@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
@@ -10,138 +10,63 @@ import { Button } from "@/components/ui/button";
 export default function StudySession() {
   const [, setLocation] = useLocation();
   const search = useSearch();
-  const mode = new URLSearchParams(search).get("mode") || undefined;
-  const { data: sessionItems, isLoading, error } = useStudySession(mode);
+  const params = new URLSearchParams(search);
+  
+  const mode = params.get("mode") || undefined;
+  // Parse startId safely
+  const rawStartId = params.get("startId");
+  const startId = rawStartId ? parseInt(rawStartId) : undefined;
+
+  const { data: sessionItems, isLoading, error } = useStudySession({ mode, startId });
   const { mutate: submitReview, isPending: isSubmitting } = useSubmitReview();
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
 
-  // If we finish all cards, redirect or show success
   const isFinished = sessionItems && currentIndex >= sessionItems.length;
 
   const handleResult = (quality: number) => {
     if (!sessionItems) return;
-    
     const currentItem = sessionItems[currentIndex];
-    
-    // Optimistic Update: Move to next card instantly
     setCompletedCount(prev => prev + 1);
     setCurrentIndex(prev => prev + 1);
-
-    submitReview({
-      questionId: currentItem.id,
-      quality,
-    });
+    submitReview({ questionId: currentItem.id, quality });
   };
 
   const handleQuit = () => {
-    if (window.confirm("Are you sure you want to quit this session?")) {
+    if (window.confirm("Do you want to save progress and quit?")) {
       setLocation("/");
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center space-y-4">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
-        <p className="text-muted-foreground font-medium animate-pulse">Loading your cards...</p>
-      </div>
-    );
-  }
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" /></div>;
+  if (error) return <div className="min-h-screen flex items-center justify-center">Error loading session</div>;
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="text-center max-w-md">
-          <h2 className="text-2xl font-bold text-destructive mb-2">Something went wrong</h2>
-          <p className="text-muted-foreground mb-6">We couldn't load your study session. Please try again.</p>
-          <Button onClick={() => window.location.reload()}>Retry</Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Session Complete State
   if (isFinished) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <motion.div 
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-xl border-2 border-primary/10"
-        >
-          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-4xl">🎉</span>
-          </div>
-          <h2 className="text-3xl font-display font-bold text-primary mb-2">Session Summary</h2>
-          <p className="text-muted-foreground mb-8 text-lg">
-            You reviewed {completedCount} cards in this session. Great job keeping up with your studies!
-          </p>
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-white p-8 rounded-3xl shadow-xl text-center max-w-md w-full border-2 border-primary/10">
+          <h2 className="text-3xl font-bold text-primary mb-4">Session Complete! 🎉</h2>
+          <p className="text-muted-foreground mb-8">You reviewed {completedCount} cards.</p>
           <div className="space-y-3">
-            <Button 
-              className="w-full h-14 text-lg rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform"
-              onClick={() => {
-                setCurrentIndex(0);
-                setCompletedCount(0);
-              }}
-            >
-              Restart Session
-            </Button>
-            <Button 
-              variant="outline"
-              className="w-full h-14 text-lg rounded-2xl border-2"
-              onClick={() => setLocation("/")}
-            >
-              Back to Home
-            </Button>
+            <Button className="w-full h-12" onClick={() => window.location.reload()}>Restart Session</Button>
+            <Button variant="outline" className="w-full h-12" onClick={() => setLocation("/")}>Back to Home</Button>
           </div>
         </motion.div>
       </div>
     );
   }
 
-  if (!sessionItems || sessionItems.length === 0) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center max-w-md bg-white p-10 rounded-3xl border-2 border-primary/10 shadow-xl">
-          <div className="w-20 h-20 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-4xl">✨</span>
-          </div>
-          <h2 className="text-2xl font-display font-bold text-primary mb-2">Everything Reviewed!</h2>
-          <p className="text-muted-foreground mb-8 text-lg">You've gone through all available cards. We'll add more soon or check back later for reviews!</p>
-          <Button 
-            className="w-full h-14 text-lg rounded-2xl"
-            onClick={() => setLocation("/")}
-          >
-            Back to Home
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  const currentCard = sessionItems[currentIndex];
+  const currentCard = sessionItems![currentIndex];
 
   return (
     <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
-      {/* Header */}
-      <header className="px-4 py-4 md:py-6 flex items-center gap-4 max-w-4xl mx-auto w-full z-10">
-        <button 
-          onClick={handleQuit}
-          className="p-2 -ml-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted transition-colors"
-        >
-          <X className="w-6 h-6" />
-        </button>
-        <ProgressBar 
-          current={currentIndex + 1} 
-          total={sessionItems.length} 
-          className="flex-1"
-        />
+      <header className="px-4 py-4 flex items-center gap-4 max-w-4xl mx-auto w-full z-10">
+        <button onClick={handleQuit} className="p-2 -ml-2 text-muted-foreground hover:bg-muted rounded-full"><X className="w-6 h-6" /></button>
+        <ProgressBar current={currentIndex + 1} total={sessionItems!.length} className="flex-1" />
       </header>
 
-      {/* Main Card Area */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 pb-20 max-w-4xl mx-auto w-full">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 pb-12 w-full max-w-4xl mx-auto">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentCard.id}
@@ -161,20 +86,11 @@ export default function StudySession() {
             />
           </motion.div>
         </AnimatePresence>
-
-        <button
-          onClick={handleQuit}
-          className="mt-12 text-slate-400 hover:text-rose-500 font-medium text-sm transition-colors flex items-center gap-2"
-        >
+        
+        <Button variant="ghost" onClick={handleQuit} className="mt-8 text-slate-400 hover:text-destructive">
           Stop Studying (Save & Quit)
-        </button>
+        </Button>
       </main>
-
-      {/* Floating Background Elements */}
-      <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-1/4 left-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-x-1/2" />
-        <div className="absolute bottom-1/4 right-0 w-80 h-80 bg-secondary/5 rounded-full blur-3xl translate-x-1/2" />
-      </div>
     </div>
   );
 }
