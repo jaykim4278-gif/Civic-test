@@ -52,11 +52,14 @@ export async function registerRoutes(
   // Force Reset (Manual Seed)
   app.post("/api/seed", async (req, res) => {
     try {
+      console.log("Creating/Seeding Database...");
       await db.delete(userProgress);
       await db.delete(questions);
       await db.insert(questions).values(CIVICS_DATA);
+      console.log("Database seeded with 100 questions.");
       res.json({ message: "Database reset and seeded successfully." });
     } catch (err: any) {
+      console.error("Seed failed:", err);
       res.status(500).json({ message: err.message });
     }
   });
@@ -74,10 +77,8 @@ export async function registerRoutes(
       let sessionQuestions;
       
       if (mode === "random") {
-        // Random Mode: Shuffle all
         sessionQuestions = await db.select().from(questions).orderBy(sql`RANDOM()`);
       } else {
-        // Linear Mode: Respect startId if provided
         let query = db.select().from(questions);
         if (startId) {
           query = query.where(gte(questions.id, startId)) as any;
@@ -98,45 +99,45 @@ export async function registerRoutes(
     }
   });
 
+  // === CRITICAL FIX: SAVING PROGRESS ===
   app.post(api.study.review.path, async (req, res) => {
-    const { questionId, quality } = api.study.review.input.parse(req.body);
-    
-    // Get existing progress
-    const results = await db.select().from(userProgress).where(eq(userProgress.questionId, questionId));
-    const currentProgress = results[0];
-    
-    const previousInterval = currentProgress?.interval ?? 0;
-    const previousEaseFactor = currentProgress?.easeFactor ?? 2.5;
-    const previousReviewCount = currentProgress?.reviewCount ?? 0;
+    try {
+      const { questionId, quality } = api.study.review.input.parse(req.body);
+      
+      console.log(`[Review] Received for Q${questionId}, Quality: ${quality}`);
 
-    const { interval, easeFactor, reviewCount } = calculateSM2(
-      quality,
-      previousInterval,
-      previousEaseFactor,
-      previousReviewCount
-    );
+      // 1. Get existing progress using Storage
+      const currentProgress = await storage.getUserProgress(questionId);
+      
+      const previousInterval = currentProgress?.interval ?? 0;
+      const previousEaseFactor = currentProgress?.easeFactor ?? 2.5;
+      const previousReviewCount = currentProgress?.reviewCount ?? 0;
 
-    // Upsert Progress
-    if (currentProgress) {
-        await db.update(userProgress).set({
-            interval,
-            easeFactor,
-            reviewCount,
-            nextReviewDate: addDays(new Date(), interval),
-            lastReviewedAt: new Date()
-        }).where(eq(userProgress.id, currentProgress.id));
-    } else {
-        await db.insert(userProgress).values({
-            questionId,
-            interval,
-            easeFactor,
-            reviewCount,
-            nextReviewDate: addDays(new Date(), interval),
-            lastReviewedAt: new Date()
-        });
+      // 2. Calculate SM-2
+      const { interval, easeFactor, reviewCount } = calculateSM2(
+        quality,
+        previousInterval,
+        previousEaseFactor,
+        previousReviewCount
+      );
+
+      // 3. Save using Storage (Reliable Upsert)
+      await storage.updateUserProgress({
+        questionId,
+        interval,
+        easeFactor,
+        reviewCount,
+        nextReviewDate: addDays(new Date(), interval),
+        lastReviewedAt: new Date()
+      });
+
+      console.log(`[Review] Saved Q${questionId}. New Interval: ${interval} days.`);
+      res.json({ success: true });
+
+    } catch (error) {
+      console.error("[Review] Save Failed:", error);
+      res.status(500).json({ message: "Failed to save progress" });
     }
-
-    res.json({ success: true });
   });
 
   app.get(api.study.stats.path, async (req, res) => {
@@ -144,20 +145,22 @@ export async function registerRoutes(
       const allQuestions = await db.select().from(questions).orderBy(asc(questions.id));
       const totalQuestions = allQuestions.length;
 
-      // Fetch ALL progress to determine what has been touched
+      // Fetch ALL progress
       const allProgress = await db.select().from(userProgress);
+      // Create a Set of all question IDs that have EVER been reviewed/touched
       const touchedIds = new Set(allProgress.map(p => p.questionId));
 
       // Calculate Next Question ID:
-      // Find the first question in the sorted list that has NOT been touched yet.
+      // Simply find the first ID in the sorted list that is NOT in the touched set.
       const nextQuestion = allQuestions.find(q => !touchedIds.has(q.id));
-      // If all are touched, loop to 1, else use the found ID.
       const nextQuestionId = nextQuestion ? nextQuestion.id : 1;
 
-      // Mastered: Only count items with high ease factor or multiple reviews
+      console.log(`[Stats] Total: ${totalQuestions}, Touched: ${touchedIds.size}, Next Q: ${nextQuestionId}`);
+
+      // Mastered count (for graph)
       const masteredCount = allProgress.filter(p => p.reviewCount > 0 && p.easeFactor > 2.0).length;
       
-      // Streak Logic
+      // Streak Calculation
       const reviews = await db.select({
         date: sql`DISTINCT DATE(${userProgress.lastReviewedAt})`
       })
@@ -168,18 +171,11 @@ export async function registerRoutes(
       if (reviews.length > 0) {
         let checkDate = new Date();
         checkDate.setHours(0,0,0,0);
-        
         for (const review of reviews) {
           const rDate = new Date(review.date as string);
           rDate.setHours(0,0,0,0);
           const diff = Math.floor((checkDate.getTime() - rDate.getTime()) / 86400000);
-          
-          if (diff <= 1) { // Today or Yesterday
-            currentStreak++;
-            checkDate = rDate; // Move reference back
-          } else {
-            break;
-          }
+          if (diff <= 1) { currentStreak++; checkDate = rDate; } else break;
         }
       }
 
@@ -188,7 +184,7 @@ export async function registerRoutes(
         masteredCount,
         currentStreak,
         hardCount: 0, 
-        nextQuestionId, // This is the crucial fix
+        nextQuestionId, 
         totalLearned: touchedIds.size, 
         dueToday: 0
       });
@@ -206,7 +202,6 @@ export async function registerRoutes(
 
 async function seedDatabase() {
   try {
-    // Check if data exists
     const countResult = await db.select({ count: sql<number>`count(*)` }).from(questions);
     const count = Number(countResult[0]?.count || 0);
 
