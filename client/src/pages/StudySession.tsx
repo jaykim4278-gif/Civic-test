@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStudySession, useSubmitReview } from "@/hooks/use-study";
-import { Flashcard } from "@/components/Flashcard"; // Fixed: Named import
+import { Flashcard } from "@/components/Flashcard";
 import { Loader2, AlertTriangle, X } from "lucide-react";
 import { api } from "@shared/routes";
 
@@ -45,17 +45,14 @@ export default function StudySession() {
     if (currentIndex < (questions?.length || 0) - 1) {
       setTimeout(() => setCurrentIndex(prev => prev + 1), 150);
     } else {
-      // Session finished naturally
       setLocation("/");
     }
   };
 
-  // 3. Trigger Modal instead of window.confirm
   const handleQuitRequest = () => {
     setShowQuitConfirm(true);
   };
 
-  // 4. Actual Quit Action
   const confirmQuit = () => {
     queryClient.invalidateQueries({ queryKey: [api.study.stats.path] });
     setLocation("/");
@@ -106,7 +103,7 @@ export default function StudySession() {
           <AnimatePresence mode="wait">
             <Flashcard 
               key={currentQuestion.id}
-              question={currentQuestion}
+              question={currentQuestion.question} 
               answer={currentQuestion.answer}
               translation={currentQuestion.translation}
               keywords={currentQuestion.keywords}
@@ -124,7 +121,7 @@ export default function StudySession() {
         </button>
       </div>
 
-      {/* 5. Custom Modal UI Overlay */}
+      {/* Custom Modal UI Overlay */}
       <AnimatePresence>
         {showQuitConfirm && (
           <motion.div 
