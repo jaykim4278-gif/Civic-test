@@ -1,24 +1,46 @@
 import { Link, useLocation } from "wouter";
-import { BookOpen, Trophy, Zap, Flame, ArrowRight, RotateCcw } from "lucide-react";
+import { BookOpen, Trophy, Zap, Flame, ArrowRight, RotateCcw, AlertTriangle } from "lucide-react";
 import { Navigation } from "@/components/Navigation";
 import { useStudyStats } from "@/hooks/use-study";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export default function Home() {
   const { data: stats, isLoading } = useStudyStats();
   const [jumpInput, setJumpInput] = useState("");
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [, setLocation] = useLocation();
 
   const handleReset = async () => {
-    if (window.confirm("⚠️ Are you sure? This will DELETE all your study progress and reset the app.")) {
-      try {
-        await fetch("/api/seed", { method: "POST" });
-        window.location.reload(); // Force reload to clear any cache
-      } catch (e) {
-        alert("Failed to reset.");
-      }
+    try {
+      await fetch("/api/seed", { method: "POST" });
+      window.location.reload(); 
+    } catch (e) {
+      alert("Failed to reset.");
+    }
+  };
+
+  // Validating Input Logic (1-100 only)
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val === "") {
+      setJumpInput("");
+      return;
+    }
+    let num = parseInt(val);
+    if (isNaN(num)) return;
+    if (num > 100) num = 100; 
+    setJumpInput(num.toString());
+  };
+
+  const handleJump = () => {
+    let num = parseInt(jumpInput);
+    if (num < 1) num = 1;
+    if (num > 100) num = 100;
+    if (jumpInput) {
+      setLocation(`/study?startId=${num}&mode=jump`);
     }
   };
 
@@ -26,17 +48,10 @@ export default function Home() {
 
   const masteryPercent = stats ? Math.round((stats.masteredCount / stats.totalQuestions) * 100) : 0;
   const streak = stats?.currentStreak || 0;
-  // Fallback to 1 if completed or error
   const nextQ = stats?.nextQuestionId || 1; 
 
-  const handleJump = () => {
-    if (jumpInput) {
-      setLocation(`/study?startId=${jumpInput}&mode=jump`);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-8">
+    <div className="min-h-screen bg-background pb-24 md:pb-8 relative">
       <header className="bg-white border-b border-border sticky top-0 z-20">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold text-slate-800">Welcome back! 🇺🇸</h1>
@@ -63,18 +78,16 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex-1 w-full space-y-4">
+          {/* Action Buttons with increased spacing */}
+          <div className="flex-1 w-full space-y-6">
             
-            {/* 1. Main Resume Button */}
             <Link href={`/study?startId=${nextQ}`}>
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white p-5 rounded-2xl font-bold text-xl shadow-lg flex items-center justify-center gap-3">
-                < BookOpen className="w-6 h-6" />
+                <BookOpen className="w-6 h-6" />
                 Continue Learning (Q{nextQ})
               </motion.button>
             </Link>
 
-            {/* 2. Random Practice */}
             <Link href="/study?mode=random">
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full bg-white hover:bg-slate-50 text-slate-600 border-2 border-slate-200 p-5 rounded-2xl font-bold text-xl flex items-center justify-center gap-3">
                 <Zap className="w-6 h-6 text-orange-500" />
@@ -82,15 +95,17 @@ export default function Home() {
               </motion.button>
             </Link>
 
-            {/* 3. Explicit Jump Section */}
+            {/* Jump Section */}
             <div className="pt-4 border-t border-slate-100 flex items-center justify-center gap-3">
               <span className="text-xs font-bold uppercase text-slate-400">Jump to:</span>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-slate-400">#</span>
                 <input 
                   type="number" 
+                  min="1"
+                  max="100"
                   value={jumpInput} 
-                  onChange={(e) => setJumpInput(e.target.value)} 
+                  onChange={handleInputChange}
                   placeholder="10" 
                   className="w-16 text-center p-2 rounded-xl border-2 border-slate-200 focus:border-emerald-500 outline-none font-bold text-slate-700 bg-slate-50" 
                 />
@@ -107,7 +122,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Library Links */}
         <section>
           <h3 className="text-2xl font-bold text-slate-800 mb-6 px-2">Library</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -126,10 +140,9 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Danger Zone */}
         <section className="pt-10 border-t border-slate-100 flex justify-center">
           <button 
-            onClick={handleReset}
+            onClick={() => setShowResetConfirm(true)}
             className="flex items-center gap-2 text-slate-400 hover:text-red-500 transition-colors text-sm font-medium"
           >
             <RotateCcw className="w-4 h-4" />
@@ -137,7 +150,55 @@ export default function Home() {
           </button>
         </section>
       </main>
+      
       <Navigation />
+
+      {/* Custom Modal Overlay */}
+      <AnimatePresence>
+        {showResetConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowResetConfirm(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-8 overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-2 bg-red-500" />
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-red-500">
+                  <AlertTriangle className="w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-800">Reset Progress?</h3>
+                <p className="text-slate-500 leading-relaxed">
+                  This will clear all your mastery data, streaks, and review schedules. This action cannot be undone.
+                </p>
+                <div className="flex flex-col w-full gap-3 pt-4">
+                  <Button
+                    onClick={handleReset}
+                    className="w-full bg-red-500 hover:bg-red-600 text-white font-bold h-12 rounded-xl"
+                  >
+                    Yes, Reset Everything
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowResetConfirm(false)}
+                    className="w-full text-slate-400 hover:text-slate-600 font-bold h-12 rounded-xl"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
