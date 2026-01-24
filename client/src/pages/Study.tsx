@@ -45,7 +45,6 @@ export default function Study() {
     if (currentIndex < (questions?.length || 0) - 1) {
       setTimeout(() => setCurrentIndex(prev => prev + 1), 150);
     } else {
-      // Session finished naturally
       setLocation("/");
     }
   };
