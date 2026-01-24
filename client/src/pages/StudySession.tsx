@@ -31,6 +31,7 @@ export default function StudySession() {
   }, [mode, startId]);
 
   const currentQuestion = questions?.[currentIndex];
+  // progress calculation
   const progress = questions ? ((currentIndex) / questions.length) * 100 : 0;
 
   const handleNext = (quality: number) => {
@@ -45,6 +46,7 @@ export default function StudySession() {
     if (currentIndex < (questions?.length || 0) - 1) {
       setTimeout(() => setCurrentIndex(prev => prev + 1), 150);
     } else {
+      // Session finished naturally
       setLocation("/");
     }
   };
@@ -80,8 +82,8 @@ export default function StudySession() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col relative">
-      {/* Header */}
-      <div className="bg-white px-6 py-4 flex items-center justify-between shadow-sm z-10">
+      {/* Header - Fixed at top */}
+      <div className="bg-white px-6 py-4 flex items-center justify-between shadow-sm z-20 sticky top-0">
         <button onClick={handleQuitRequest} className="p-2 -ml-2 text-slate-400 hover:text-slate-600 transition-colors">
           <X className="w-6 h-6" />
         </button>
@@ -97,9 +99,10 @@ export default function StudySession() {
         </span>
       </div>
 
-      {/* Card Area */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-hidden">
-        <div className="w-full max-w-2xl aspect-[4/3] md:aspect-[16/9] relative perspective-1000">
+      {/* Card Area - Scrollable */}
+      <div className="flex-1 flex flex-col items-center p-6 overflow-y-auto">
+        {/* Removed fixed aspect-ratio so card can grow tall if needed */}
+        <div className="w-full max-w-2xl relative perspective-1000 my-auto">
           <AnimatePresence mode="wait">
             <Flashcard 
               key={currentQuestion.id}
@@ -112,10 +115,10 @@ export default function StudySession() {
           </AnimatePresence>
         </div>
         
-        {/* Bottom Stop Button */}
+        {/* Bottom Stop Button - Added margin-bottom */}
         <button 
           onClick={handleQuitRequest}
-          className="mt-8 text-sm font-bold text-slate-300 hover:text-red-400 transition-colors"
+          className="mt-12 mb-8 text-sm font-bold text-slate-300 hover:text-red-400 transition-colors shrink-0"
         >
           Stop Studying (Save & Quit)
         </button>
