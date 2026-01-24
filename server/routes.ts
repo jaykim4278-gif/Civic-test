@@ -87,16 +87,20 @@ export async function registerRoutes(
     }
   });
 
+  // === CRITICAL FIX: EXPLICIT UPSERT FOR PROGRESS ===
   app.post(api.study.review.path, async (req, res) => {
     try {
       const { questionId, quality } = api.study.review.input.parse(req.body);
       console.log(`[Review] Received for Q${questionId}, Quality: ${quality}`);
 
-      const currentProgress = await storage.getUserProgress(questionId);
-      const previousInterval = currentProgress?.interval ?? 0;
-      const previousEaseFactor = currentProgress?.easeFactor ?? 2.5;
-      const previousReviewCount = currentProgress?.reviewCount ?? 0;
+      // 1. Check existence and get current progress
+      const [existing] = await db.select().from(userProgress).where(eq(userProgress.questionId, questionId));
+      
+      const previousInterval = existing?.interval ?? 0;
+      const previousEaseFactor = existing?.easeFactor ?? 2.5;
+      const previousReviewCount = existing?.reviewCount ?? 0;
 
+      // 2. Calculate SM-2
       const { interval, easeFactor, reviewCount } = calculateSM2(
         quality,
         previousInterval,
@@ -104,16 +108,32 @@ export async function registerRoutes(
         previousReviewCount
       );
 
-      await storage.updateUserProgress({
-        questionId,
-        interval,
-        easeFactor,
-        reviewCount,
-        nextReviewDate: addDays(new Date(), interval),
-        lastReviewedAt: new Date()
-      });
+      const nextReviewDate = addDays(new Date(), interval);
+      const lastReviewedAt = new Date();
 
-      console.log(`[Review] Saved Q${questionId}. New Interval: ${interval}`);
+      // 3. Explicit UPSERT
+      if (existing) {
+        await db.update(userProgress).set({
+          interval,
+          easeFactor,
+          reviewCount,
+          nextReviewDate,
+          lastReviewedAt
+        }).where(eq(userProgress.questionId, questionId));
+        console.log(`[Review] Updated Q${questionId}. New Interval: ${interval}`);
+      } else {
+        await db.insert(userProgress).values({
+          userId: 1, // Default user
+          questionId,
+          interval,
+          easeFactor,
+          reviewCount,
+          nextReviewDate,
+          lastReviewedAt
+        });
+        console.log(`[Review] Inserted Q${questionId}. New Interval: ${interval}`);
+      }
+
       res.json({ success: true });
     } catch (error) {
       console.error("[Review] Save Failed:", error);
