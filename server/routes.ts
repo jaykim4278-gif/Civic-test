@@ -6,13 +6,19 @@ import { z } from "zod";
 import { addDays } from "date-fns";
 import { CIVICS_DATA } from "./civics_data";
 import { db } from "./db";
-import { asc, sql, eq, desc, gte } from "drizzle-orm";
+import { asc, sql, eq, desc, gte, and } from "drizzle-orm";
 import { questions, userProgress } from "@shared/schema";
 
 // SM-2 Algorithm
-function calculateSM2(quality: number, previousInterval: number, previousEaseFactor: number, reviewCount: number) {
+function calculateSM2(
+  quality: number,
+  previousInterval: number,
+  previousEaseFactor: number,
+  reviewCount: number
+) {
   let interval: number;
   let easeFactor: number;
+
   if (quality >= 3) {
     if (reviewCount === 0) interval = 1;
     else if (reviewCount === 1) interval = 6;
@@ -22,22 +28,41 @@ function calculateSM2(quality: number, previousInterval: number, previousEaseFac
     reviewCount = 0;
     interval = 1; 
   }
+
   easeFactor = previousEaseFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
   if (easeFactor < 1.3) easeFactor = 1.3;
+
   return { interval, easeFactor, reviewCount };
 }
 
-export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
+export async function registerRoutes(
+  httpServer: Server,
+  app: Express
+): Promise<Server> {
   
-  // Seed
+  // Helper to get User ID from Headers (Simple Auth)
+  const getUserId = (req: any) => {
+    const headerVal = req.headers['x-user-id'];
+    const uid = parseInt(Array.isArray(headerVal) ? headerVal[0] : headerVal);
+    return isNaN(uid) ? 1 : uid;
+  };
+
+  // Force Reset (Only for current user)
   app.post("/api/seed", async (req, res) => {
     try {
-      console.log("Creating/Seeding Database...");
-      await db.delete(userProgress);
-      await db.delete(questions);
-      await db.insert(questions).values(CIVICS_DATA);
-      console.log("Database seeded with 100 questions.");
-      res.json({ message: "Database reset and seeded successfully." });
+      const userId = getUserId(req);
+      console.log(`Resetting progress for User ${userId}...`);
+      
+      // Only delete progress for this user
+      await db.delete(userProgress).where(eq(userProgress.userId, userId));
+      
+      // Ensure questions exist (idempotent)
+      const countResult = await db.select({ count: sql<number>`count(*)` }).from(questions);
+      if (Number(countResult[0]?.count || 0) === 0) {
+        await db.insert(questions).values(CIVICS_DATA);
+      }
+
+      res.json({ message: `Progress reset for User ${userId}.` });
     } catch (err: any) {
       console.error("Seed failed:", err);
       res.status(500).json({ message: err.message });
@@ -52,12 +77,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/study/session", async (req, res) => {
     try {
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      
       const mode = req.query.mode as string | undefined;
       const startId = parseInt(req.query.startId as string) || undefined;
       
-      console.log(`[Session] Requested. Mode: ${mode}, StartId: ${startId}`);
-
       let sessionQuestions;
+      
       if (mode === "random") {
         sessionQuestions = await db.select().from(questions).orderBy(sql`RANDOM()`);
       } else {
@@ -67,6 +92,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
         sessionQuestions = await query.orderBy(asc(questions.id));
       }
+
       const result = sessionQuestions.map(q => ({ ...q, isNew: true, progress: undefined }));
       res.json(result);
     } catch (error) {
@@ -75,30 +101,30 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  // [LOGIC FIX] Only save progress if mode is 'linear' (default)
+  // Review Endpoint (Multi-User Aware)
   app.post(api.study.review.path, async (req, res) => {
     try {
+      const userId = getUserId(req);
       const mode = req.query.mode as string | undefined;
       const { questionId, quality } = api.study.review.input.parse(req.body);
       
-      console.log(`[Review] Q${questionId} (Quality: ${quality}) - Mode: ${mode || 'linear'}`);
+      console.log(`[Review] User ${userId} - Q${questionId} (${mode || 'linear'})`);
 
-      // === CRITICAL: SKIP DB SAVE FOR NON-LINEAR MODES ===
       if (mode === 'random' || mode === 'jump') {
-        console.log(`[Review] Skipping DB save for mode: ${mode}`);
         return res.json({ success: true, skipped: true });
       }
 
-      // --- Linear Mode: Proceed with DB Save ---
+      // Check existence for THIS USER
+      const [existing] = await db.select().from(userProgress)
+        .where(and(
+          eq(userProgress.questionId, questionId),
+          eq(userProgress.userId, userId)
+        ));
       
-      // 1. Get current progress
-      const currentProgress = await storage.getUserProgress(questionId);
-      
-      const previousInterval = currentProgress?.interval ?? 0;
-      const previousEaseFactor = currentProgress?.easeFactor ?? 2.5;
-      const previousReviewCount = currentProgress?.reviewCount ?? 0;
+      const previousInterval = existing?.interval ?? 0;
+      const previousEaseFactor = existing?.easeFactor ?? 2.5;
+      const previousReviewCount = existing?.reviewCount ?? 0;
 
-      // 2. Calculate SM-2
       const { interval, easeFactor, reviewCount } = calculateSM2(
         quality,
         previousInterval,
@@ -109,56 +135,60 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const nextReviewDate = addDays(new Date(), interval);
       const lastReviewedAt = new Date();
 
-      // 3. Upsert to DB
-      await storage.updateUserProgress({
-        questionId,
-        interval,
-        easeFactor,
-        reviewCount,
-        nextReviewDate,
-        lastReviewedAt,
-        userId: 1, 
-      } as any);
+      if (existing) {
+        await db.update(userProgress).set({
+          interval,
+          easeFactor,
+          reviewCount,
+          nextReviewDate,
+          lastReviewedAt
+        })
+        .where(and(
+          eq(userProgress.questionId, questionId),
+          eq(userProgress.userId, userId)
+        ));
+      } else {
+        await db.insert(userProgress).values({
+          userId, // Dynamic User ID
+          questionId,
+          interval,
+          easeFactor,
+          reviewCount,
+          nextReviewDate,
+          lastReviewedAt
+        });
+      }
 
-      console.log(`[Review] Saved Q${questionId}. New Interval: ${interval}`);
       res.json({ success: true });
     } catch (error) {
       console.error("[Review] Save Failed:", error);
-      res.status(500).json({ message: "Failed to save progress", error: String(error) });
+      res.status(500).json({ message: "Failed to save progress" });
     }
   });
 
-  // === DEBUGGING STATS ENDPOINT ===
   app.get(api.study.stats.path, async (req, res) => {
     try {
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      const userId = getUserId(req);
       
-      console.log("------------------------------------------------");
-      console.log("[DEBUG] /api/study/stats CALLED");
-
       const allQuestions = await db.select().from(questions).orderBy(asc(questions.id));
       const totalQuestions = allQuestions.length;
 
-      const allProgress = await db.select().from(userProgress);
-      console.log(`[DEBUG] Total Records in userProgress Table: ${allProgress.length}`);
-      
-      // Print first 5 records to verify structure
-      if (allProgress.length > 0) {
-        console.log("[DEBUG] First record sample:", allProgress[0]);
-      }
-
+      // Filter progress by User ID
+      const allProgress = await db.select().from(userProgress).where(eq(userProgress.userId, userId));
       const touchedIds = new Set(allProgress.map(p => p.questionId));
-      console.log(`[DEBUG] Touched IDs (Count: ${touchedIds.size}):`, Array.from(touchedIds));
 
       const nextQuestion = allQuestions.find(q => !touchedIds.has(q.id));
       const nextQuestionId = nextQuestion ? nextQuestion.id : 1;
 
-      console.log(`[DEBUG] Calculated NextQuestionID: ${nextQuestionId}`);
+      console.log(`[Stats] User ${userId} - Touched: ${touchedIds.size}, Next Q: ${nextQuestionId}`);
 
       const masteredCount = allProgress.filter(p => p.reviewCount > 0 && p.easeFactor > 2.0).length;
       
       const reviews = await db.select({ date: sql`DISTINCT DATE(${userProgress.lastReviewedAt})` })
-        .from(userProgress).orderBy(desc(sql`DATE(${userProgress.lastReviewedAt})`));
+        .from(userProgress)
+        .where(eq(userProgress.userId, userId))
+        .orderBy(desc(sql`DATE(${userProgress.lastReviewedAt})`));
 
       let currentStreak = 0;
       if (reviews.length > 0) {
@@ -172,14 +202,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
-      res.json({ totalQuestions, masteredCount, currentStreak, hardCount: 0, nextQuestionId, totalLearned: touchedIds.size, dueToday: 0 });
+      res.json({
+        totalQuestions,
+        masteredCount,
+        currentStreak,
+        hardCount: 0, 
+        nextQuestionId, 
+        totalLearned: touchedIds.size, 
+        dueToday: 0
+      });
     } catch (error) {
       console.error("Stats Error:", error);
       res.status(500).json({ message: "Failed to load stats" });
     }
   });
 
-  // Seed Check
+  // Initial Seed Check
   try {
     const countResult = await db.select({ count: sql<number>`count(*)` }).from(questions);
     if (Number(countResult[0]?.count || 0) === 0) {

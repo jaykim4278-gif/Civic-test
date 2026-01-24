@@ -1,10 +1,10 @@
 import { Link, useLocation } from "wouter";
-import { BookOpen, Trophy, Zap, Flame, ArrowRight, RotateCcw, AlertTriangle } from "lucide-react";
+import { BookOpen, Trophy, Zap, Flame, ArrowRight, RotateCcw, AlertTriangle, Users } from "lucide-react";
 import { Navigation } from "@/components/Navigation";
 import { useStudyStats } from "@/hooks/use-study";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 
 export default function Home() {
@@ -12,10 +12,23 @@ export default function Home() {
   const [jumpInput, setJumpInput] = useState("");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [, setLocation] = useLocation();
+  
+  // User State
+  const [userId, setUserId] = useState(() => localStorage.getItem("civics_user_id") || "1");
+
+  const toggleUser = () => {
+    const nextUser = userId === "1" ? "2" : "1";
+    localStorage.setItem("civics_user_id", nextUser);
+    setUserId(nextUser);
+    window.location.reload();
+  };
 
   const handleReset = async () => {
     try {
-      await fetch("/api/seed", { method: "POST" });
+      await fetch("/api/seed", { 
+        method: "POST",
+        headers: { "x-user-id": userId }
+      });
       window.location.reload(); 
     } catch (e) {
       alert("Failed to reset.");
@@ -54,7 +67,18 @@ export default function Home() {
     <div className="min-h-screen bg-background pb-24 md:pb-8 relative">
       <header className="bg-white border-b border-border sticky top-0 z-20">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-slate-800">Welcome back! 🇺🇸</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-bold text-slate-800">Welcome back! 🇺🇸</h1>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={toggleUser}
+              className="flex items-center gap-2 rounded-full border-slate-200 text-slate-600 font-bold px-4"
+            >
+              <Users className="w-4 h-4" />
+              User {userId}
+            </Button>
+          </div>
           <div className={cn("flex items-center gap-2 px-3 py-1.5 rounded-full font-bold text-sm transition-colors", streak > 0 ? "bg-orange-50 text-orange-600" : "bg-slate-100 text-slate-400")}>
             <Flame className={cn("w-5 h-5", streak > 0 ? "fill-orange-500" : "")} />
             <span>{streak} Day Streak</span>
