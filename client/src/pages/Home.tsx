@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { BookOpen, Trophy, Zap, Flame, ArrowRight } from "lucide-react";
+import { BookOpen, Trophy, Zap, Flame, ArrowRight, RotateCcw } from "lucide-react";
 import { Navigation } from "@/components/Navigation";
 import { useStudyStats } from "@/hooks/use-study";
 import { motion } from "framer-motion";
@@ -10,6 +10,17 @@ export default function Home() {
   const { data: stats, isLoading } = useStudyStats();
   const [jumpInput, setJumpInput] = useState("");
   const [, setLocation] = useLocation();
+
+  const handleReset = async () => {
+    if (window.confirm("⚠️ Are you sure? This will DELETE all your study progress and reset the app.")) {
+      try {
+        await fetch("/api/seed", { method: "POST" });
+        window.location.reload(); // Force reload to clear any cache
+      } catch (e) {
+        alert("Failed to reset.");
+      }
+    }
+  };
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-12 w-12 border-b-2 border-primary rounded-full"/></div>;
 
@@ -113,6 +124,17 @@ export default function Home() {
               </div>
             </Link>
           </div>
+        </section>
+
+        {/* Danger Zone */}
+        <section className="pt-10 border-t border-slate-100 flex justify-center">
+          <button 
+            onClick={handleReset}
+            className="flex items-center gap-2 text-slate-400 hover:text-red-500 transition-colors text-sm font-medium"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Reset All Study Progress
+          </button>
         </section>
       </main>
       <Navigation />

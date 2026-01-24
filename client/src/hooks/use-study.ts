@@ -13,8 +13,8 @@ export function useStudySession(args?: { mode?: string; startId?: number }) {
       const params = new URLSearchParams();
       if (mode) params.append("mode", mode);
       if (startId) params.append("startId", startId.toString());
-      
-      const url = `${api.study.session.path}?${params.toString()}`;
+      // Add timestamp to prevent caching
+      const url = `${api.study.session.path}?${params.toString()}&t=${Date.now()}`;
       const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch study session");
       return api.study.session.responses[200].parse(await res.json());
@@ -28,10 +28,15 @@ export function useStudyStats() {
   return useQuery({
     queryKey: [api.study.stats.path],
     queryFn: async () => {
-      const res = await fetch(api.study.stats.path, { credentials: "include" });
+      // Add timestamp to force fresh fetch
+      const res = await fetch(`${api.study.stats.path}?t=${Date.now()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch stats");
       return api.study.stats.responses[200].parse(await res.json());
     },
+    // CRITICAL: Always treat data as stale so it refetches on home screen mount
+    staleTime: 0,
+    gcTime: 0, 
+    refetchOnMount: 'always'
   });
 }
 
@@ -50,6 +55,7 @@ export function useSubmitReview() {
       return api.study.review.responses[200].parse(await res.json());
     },
     onSuccess: () => {
+      // Immediately invalidate stats to update UI
       queryClient.invalidateQueries({ queryKey: [api.study.stats.path] });
     },
   });
