@@ -75,48 +75,55 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  // === DEBUGGING REVIEW ENDPOINT ===
+  // [LOGIC FIX] Only save progress if mode is 'linear' (default)
   app.post(api.study.review.path, async (req, res) => {
     try {
-      console.log("------------------------------------------------");
-      console.log("[DEBUG] /api/study/review CALLED");
-      console.log("[DEBUG] Request Body:", req.body);
-
+      const mode = req.query.mode as string | undefined;
       const { questionId, quality } = api.study.review.input.parse(req.body);
-
-      // 1. Direct DB Check
-      console.log(`[DEBUG] Checking DB for QuestionID: ${questionId}`);
-      const [existing] = await db.select().from(userProgress).where(eq(userProgress.questionId, questionId));
-      console.log(`[DEBUG] Existing record found?`, !!existing);
-
-      const previousInterval = existing?.interval ?? 0;
-      const previousEaseFactor = existing?.easeFactor ?? 2.5;
-      const previousReviewCount = existing?.reviewCount ?? 0;
-
-      const { interval, easeFactor, reviewCount } = calculateSM2(quality, previousInterval, previousEaseFactor, previousReviewCount);
       
+      console.log(`[Review] Q${questionId} (Quality: ${quality}) - Mode: ${mode || 'linear'}`);
+
+      // === CRITICAL: SKIP DB SAVE FOR NON-LINEAR MODES ===
+      if (mode === 'random' || mode === 'jump') {
+        console.log(`[Review] Skipping DB save for mode: ${mode}`);
+        return res.json({ success: true, skipped: true });
+      }
+
+      // --- Linear Mode: Proceed with DB Save ---
+      
+      // 1. Get current progress
+      const currentProgress = await storage.getUserProgress(questionId);
+      
+      const previousInterval = currentProgress?.interval ?? 0;
+      const previousEaseFactor = currentProgress?.easeFactor ?? 2.5;
+      const previousReviewCount = currentProgress?.reviewCount ?? 0;
+
+      // 2. Calculate SM-2
+      const { interval, easeFactor, reviewCount } = calculateSM2(
+        quality,
+        previousInterval,
+        previousEaseFactor,
+        previousReviewCount
+      );
+
       const nextReviewDate = addDays(new Date(), interval);
       const lastReviewedAt = new Date();
 
-      if (existing) {
-        console.log("[DEBUG] Performing UPDATE...");
-        await db.update(userProgress).set({ interval, easeFactor, reviewCount, nextReviewDate, lastReviewedAt }).where(eq(userProgress.questionId, questionId));
-        console.log("[DEBUG] UPDATE Successful.");
-      } else {
-        console.log("[DEBUG] Performing INSERT...");
-        // Explicitly using userId: 1 and logging the attempt
-        const insertData = { userId: 1, questionId, interval, easeFactor, reviewCount, nextReviewDate, lastReviewedAt };
-        console.log("[DEBUG] Insert Data:", insertData);
-        
-        await db.insert(userProgress).values(insertData);
-        console.log("[DEBUG] INSERT Successful.");
-      }
+      // 3. Upsert to DB
+      await storage.updateUserProgress({
+        questionId,
+        interval,
+        easeFactor,
+        reviewCount,
+        nextReviewDate,
+        lastReviewedAt,
+        userId: 1, 
+      } as any);
 
+      console.log(`[Review] Saved Q${questionId}. New Interval: ${interval}`);
       res.json({ success: true });
     } catch (error) {
-      console.error("!!!!! [DEBUG] SAVE FAILED !!!!!");
-      console.error("Error Message:", error);
-      console.error("Full Error Object:", JSON.stringify(error, null, 2));
+      console.error("[Review] Save Failed:", error);
       res.status(500).json({ message: "Failed to save progress", error: String(error) });
     }
   });
