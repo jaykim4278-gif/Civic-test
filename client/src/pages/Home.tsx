@@ -79,7 +79,7 @@ export default function Home() {
           </div>
 
           {/* Action Buttons with increased spacing */}
-          <div className="flex-1 w-full space-y-6">
+          <div className="flex-1 w-full flex flex-col gap-8">
             
             <Link href={`/study?startId=${nextQ}`}>
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white p-5 rounded-2xl font-bold text-xl shadow-lg flex items-center justify-center gap-3">
