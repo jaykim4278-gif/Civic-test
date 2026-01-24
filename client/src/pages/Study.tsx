@@ -139,13 +139,14 @@ export default function Study() {
               className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl"
             >
               <div className="flex flex-col items-center text-center gap-4">
-                <div className="w-14 h-14 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center">
-                  <AlertTriangle className="w-7 h-7" />
+                <div className="w-16 h-16 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="w-8 h-8" />
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-slate-800">Stop Session?</h3>
-                  <p className="text-slate-500 text-sm mt-1">
-                    Your progress for completed cards has been saved.
+                  <p className="text-slate-500 text-sm mt-2 leading-relaxed">
+                    Your progress for completed cards has been saved. <br/>
+                    Do you want to return to home?
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-3 w-full mt-2">
