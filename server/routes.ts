@@ -9,16 +9,10 @@ import { db } from "./db";
 import { asc, sql, eq, desc, gte } from "drizzle-orm";
 import { questions, userProgress } from "@shared/schema";
 
-// SM-2 Algorithm Implementation
-function calculateSM2(
-  quality: number,
-  previousInterval: number,
-  previousEaseFactor: number,
-  reviewCount: number
-) {
+// SM-2 Algorithm
+function calculateSM2(quality: number, previousInterval: number, previousEaseFactor: number, reviewCount: number) {
   let interval: number;
   let easeFactor: number;
-
   if (quality >= 3) {
     if (reviewCount === 0) interval = 1;
     else if (reviewCount === 1) interval = 6;
@@ -28,19 +22,14 @@ function calculateSM2(
     reviewCount = 0;
     interval = 1; 
   }
-
   easeFactor = previousEaseFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
   if (easeFactor < 1.3) easeFactor = 1.3;
-
   return { interval, easeFactor, reviewCount };
 }
 
-export async function registerRoutes(
-  httpServer: Server,
-  app: Express
-): Promise<Server> {
+export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   
-  // Force Reset (Manual Seed)
+  // Seed
   app.post("/api/seed", async (req, res) => {
     try {
       console.log("Creating/Seeding Database...");
@@ -62,13 +51,13 @@ export async function registerRoutes(
 
   app.get("/api/study/session", async (req, res) => {
     try {
-      // Disable Cache for Session
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      
       const mode = req.query.mode as string | undefined;
       const startId = parseInt(req.query.startId as string) || undefined;
-      let sessionQuestions;
       
+      console.log(`[Session] Requested. Mode: ${mode}, StartId: ${startId}`);
+
+      let sessionQuestions;
       if (mode === "random") {
         sessionQuestions = await db.select().from(questions).orderBy(sql`RANDOM()`);
       } else {
@@ -78,7 +67,6 @@ export async function registerRoutes(
         }
         sessionQuestions = await query.orderBy(asc(questions.id));
       }
-
       const result = sessionQuestions.map(q => ({ ...q, isNew: true, progress: undefined }));
       res.json(result);
     } catch (error) {
@@ -87,65 +75,78 @@ export async function registerRoutes(
     }
   });
 
-  // [FIXED] Review Endpoint using Storage Module
+  // === DEBUGGING REVIEW ENDPOINT ===
   app.post(api.study.review.path, async (req, res) => {
     try {
+      console.log("------------------------------------------------");
+      console.log("[DEBUG] /api/study/review CALLED");
+      console.log("[DEBUG] Request Body:", req.body);
+
       const { questionId, quality } = api.study.review.input.parse(req.body);
-      console.log(`[Review] Processing Q${questionId}, Quality: ${quality}`);
 
-      // 1. Get current progress via storage
-      const currentProgress = await storage.getUserProgress(questionId);
+      // 1. Direct DB Check
+      console.log(`[DEBUG] Checking DB for QuestionID: ${questionId}`);
+      const [existing] = await db.select().from(userProgress).where(eq(userProgress.questionId, questionId));
+      console.log(`[DEBUG] Existing record found?`, !!existing);
+
+      const previousInterval = existing?.interval ?? 0;
+      const previousEaseFactor = existing?.easeFactor ?? 2.5;
+      const previousReviewCount = existing?.reviewCount ?? 0;
+
+      const { interval, easeFactor, reviewCount } = calculateSM2(quality, previousInterval, previousEaseFactor, previousReviewCount);
       
-      const previousInterval = currentProgress?.interval ?? 0;
-      const previousEaseFactor = currentProgress?.easeFactor ?? 2.5;
-      const previousReviewCount = currentProgress?.reviewCount ?? 0;
-
-      // 2. Calculate SM-2
-      const { interval, easeFactor, reviewCount } = calculateSM2(
-        quality,
-        previousInterval,
-        previousEaseFactor,
-        previousReviewCount
-      );
-
       const nextReviewDate = addDays(new Date(), interval);
       const lastReviewedAt = new Date();
 
-      // 3. Save via storage (handles UPSERT safely)
-      // Using 'as any' to bypass potential strict userId checks if not needed by schema
-      await storage.updateUserProgress({
-        questionId,
-        interval,
-        easeFactor,
-        reviewCount,
-        nextReviewDate,
-        lastReviewedAt,
-        userId: 1, 
-      } as any);
+      if (existing) {
+        console.log("[DEBUG] Performing UPDATE...");
+        await db.update(userProgress).set({ interval, easeFactor, reviewCount, nextReviewDate, lastReviewedAt }).where(eq(userProgress.questionId, questionId));
+        console.log("[DEBUG] UPDATE Successful.");
+      } else {
+        console.log("[DEBUG] Performing INSERT...");
+        // Explicitly using userId: 1 and logging the attempt
+        const insertData = { userId: 1, questionId, interval, easeFactor, reviewCount, nextReviewDate, lastReviewedAt };
+        console.log("[DEBUG] Insert Data:", insertData);
+        
+        await db.insert(userProgress).values(insertData);
+        console.log("[DEBUG] INSERT Successful.");
+      }
 
-      console.log(`[Review] Saved Q${questionId}. New Interval: ${interval}`);
       res.json({ success: true });
     } catch (error) {
-      console.error("[Review] Save Failed:", error);
+      console.error("!!!!! [DEBUG] SAVE FAILED !!!!!");
+      console.error("Error Message:", error);
+      console.error("Full Error Object:", JSON.stringify(error, null, 2));
       res.status(500).json({ message: "Failed to save progress", error: String(error) });
     }
   });
 
+  // === DEBUGGING STATS ENDPOINT ===
   app.get(api.study.stats.path, async (req, res) => {
     try {
-      // CRITICAL FIX: Disable Caching for Stats
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       
+      console.log("------------------------------------------------");
+      console.log("[DEBUG] /api/study/stats CALLED");
+
       const allQuestions = await db.select().from(questions).orderBy(asc(questions.id));
       const totalQuestions = allQuestions.length;
 
       const allProgress = await db.select().from(userProgress);
+      console.log(`[DEBUG] Total Records in userProgress Table: ${allProgress.length}`);
+      
+      // Print first 5 records to verify structure
+      if (allProgress.length > 0) {
+        console.log("[DEBUG] First record sample:", allProgress[0]);
+      }
+
       const touchedIds = new Set(allProgress.map(p => p.questionId));
+      console.log(`[DEBUG] Touched IDs (Count: ${touchedIds.size}):`, Array.from(touchedIds));
 
       const nextQuestion = allQuestions.find(q => !touchedIds.has(q.id));
       const nextQuestionId = nextQuestion ? nextQuestion.id : 1;
 
-      console.log(`[Stats] Total: ${totalQuestions}, Touched: ${touchedIds.size}, Next Q: ${nextQuestionId}`);
+      console.log(`[DEBUG] Calculated NextQuestionID: ${nextQuestionId}`);
 
       const masteredCount = allProgress.filter(p => p.reviewCount > 0 && p.easeFactor > 2.0).length;
       
@@ -164,22 +165,14 @@ export async function registerRoutes(
         }
       }
 
-      res.json({
-        totalQuestions,
-        masteredCount,
-        currentStreak,
-        hardCount: 0, 
-        nextQuestionId, 
-        totalLearned: touchedIds.size, 
-        dueToday: 0
-      });
+      res.json({ totalQuestions, masteredCount, currentStreak, hardCount: 0, nextQuestionId, totalLearned: touchedIds.size, dueToday: 0 });
     } catch (error) {
       console.error("Stats Error:", error);
       res.status(500).json({ message: "Failed to load stats" });
     }
   });
 
-  // Safe Seeding
+  // Seed Check
   try {
     const countResult = await db.select({ count: sql<number>`count(*)` }).from(questions);
     if (Number(countResult[0]?.count || 0) === 0) {
