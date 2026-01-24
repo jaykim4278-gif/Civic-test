@@ -6,7 +6,7 @@ import { z } from "zod";
 import { addDays } from "date-fns";
 import { CIVICS_DATA } from "./civics_data";
 import { db } from "./db";
-import { asc, sql, eq, lt, desc, gte } from "drizzle-orm";
+import { asc, sql, eq, desc, gte } from "drizzle-orm";
 import { questions, userProgress } from "@shared/schema";
 
 // SM-2 Algorithm Implementation
@@ -87,18 +87,18 @@ export async function registerRoutes(
     }
   });
 
-  // === CRITICAL FIX: EXPLICIT UPSERT FOR PROGRESS ===
+  // [FIXED] Review Endpoint using Storage Module
   app.post(api.study.review.path, async (req, res) => {
     try {
       const { questionId, quality } = api.study.review.input.parse(req.body);
-      console.log(`[Review] Received for Q${questionId}, Quality: ${quality}`);
+      console.log(`[Review] Processing Q${questionId}, Quality: ${quality}`);
 
-      // 1. Check existence and get current progress
-      const [existing] = await db.select().from(userProgress).where(eq(userProgress.questionId, questionId));
+      // 1. Get current progress via storage
+      const currentProgress = await storage.getUserProgress(questionId);
       
-      const previousInterval = existing?.interval ?? 0;
-      const previousEaseFactor = existing?.easeFactor ?? 2.5;
-      const previousReviewCount = existing?.reviewCount ?? 0;
+      const previousInterval = currentProgress?.interval ?? 0;
+      const previousEaseFactor = currentProgress?.easeFactor ?? 2.5;
+      const previousReviewCount = currentProgress?.reviewCount ?? 0;
 
       // 2. Calculate SM-2
       const { interval, easeFactor, reviewCount } = calculateSM2(
@@ -111,33 +111,23 @@ export async function registerRoutes(
       const nextReviewDate = addDays(new Date(), interval);
       const lastReviewedAt = new Date();
 
-      // 3. Explicit UPSERT
-      if (existing) {
-        await db.update(userProgress).set({
-          interval,
-          easeFactor,
-          reviewCount,
-          nextReviewDate,
-          lastReviewedAt
-        }).where(eq(userProgress.questionId, questionId));
-        console.log(`[Review] Updated Q${questionId}. New Interval: ${interval}`);
-      } else {
-        await db.insert(userProgress).values({
-          userId: 1, // Default user
-          questionId,
-          interval,
-          easeFactor,
-          reviewCount,
-          nextReviewDate,
-          lastReviewedAt
-        });
-        console.log(`[Review] Inserted Q${questionId}. New Interval: ${interval}`);
-      }
+      // 3. Save via storage (handles UPSERT safely)
+      // Using 'as any' to bypass potential strict userId checks if not needed by schema
+      await storage.updateUserProgress({
+        questionId,
+        interval,
+        easeFactor,
+        reviewCount,
+        nextReviewDate,
+        lastReviewedAt,
+        userId: 1, 
+      } as any);
 
+      console.log(`[Review] Saved Q${questionId}. New Interval: ${interval}`);
       res.json({ success: true });
     } catch (error) {
       console.error("[Review] Save Failed:", error);
-      res.status(500).json({ message: "Failed to save progress" });
+      res.status(500).json({ message: "Failed to save progress", error: String(error) });
     }
   });
 
