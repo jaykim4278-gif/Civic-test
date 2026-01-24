@@ -31,7 +31,7 @@ export default function Home() {
 
   const handleJump = () => {
     if (jumpInput) {
-      setLocation(`/study?startId=${jumpInput}`);
+      setLocation(`/study?startId=${jumpInput}&mode=jump`);
     }
   };
 

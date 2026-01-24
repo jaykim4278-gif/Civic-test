@@ -44,18 +44,24 @@ export function useSubmitReview() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: ReviewInput) => {
+      // 1. Get current mode from URL
+      const searchParams = new URLSearchParams(window.location.search);
+      const mode = searchParams.get("mode") || "linear";
+
+      // 2. Validate Input
       const validated = api.study.review.input.parse(data);
-      const res = await fetch(api.study.review.path, {
+
+      // 3. Send request with ?mode=...
+      const res = await fetch(`${api.study.review.path}?mode=${mode}`, {
         method: api.study.review.method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(validated),
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to submit review");
-      return api.study.review.responses[200].parse(await res.json());
+      return await res.json();
     },
     onSuccess: () => {
-      // Immediately invalidate stats to update UI
       queryClient.invalidateQueries({ queryKey: [api.study.stats.path] });
     },
   });

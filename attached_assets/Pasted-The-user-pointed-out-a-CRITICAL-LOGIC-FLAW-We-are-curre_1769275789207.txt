@@ -1,0 +1,98 @@
+The user pointed out a CRITICAL LOGIC FLAW:
+We are currently saving progress for ALL modes, but 'Random' and 'Jump' modes should NOT affect the persistent database progress (userProgress). Only 'Continue Learning' (default/linear) should save progress.
+
+Please Apply these 3 fixes to separate the logic:
+
+**1. Update `client/pages/Home.tsx`**
+Change the `handleJump` function to explicitly add `mode=jump` to the URL.
+Find: `setLocation(\`/study?startId=${jumpInput}\`);`
+Replace with: `setLocation(\`/study?startId=${jumpInput}&mode=jump\`);`
+
+**2. Update `client/hooks/use-study.ts`**
+Modify `useSubmitReview` to pass the current `mode` from the browser URL to the backend via Query Params.
+
+Replace the `useSubmitReview` function with this logic:
+```typescript
+export function useSubmitReview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: ReviewInput) => {
+      // 1. Get current mode from URL
+      const searchParams = new URLSearchParams(window.location.search);
+      const mode = searchParams.get("mode") || "linear";
+
+      // 2. Validate Input
+      const validated = api.study.review.input.parse(data);
+
+      // 3. Send request with ?mode=...
+      const res = await fetch(`${api.study.review.path}?mode=${mode}`, {
+        method: api.study.review.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(validated),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to submit review");
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.study.stats.path] });
+    },
+  });
+}
+
+3. Update server/routes.ts Modify app.post(api.study.review.path) to CHECK the mode. If mode is 'random' or 'jump', SKIP the database operations entirely.
+
+Replace the review route handler with this:
+
+// [LOGIC FIX] Only save progress if mode is 'linear' (default)
+  app.post(api.study.review.path, async (req, res) => {
+    try {
+      const mode = req.query.mode as string | undefined;
+      const { questionId, quality } = api.study.review.input.parse(req.body);
+      
+      console.log(`[Review] Q${questionId} (Quality: ${quality}) - Mode: ${mode || 'linear'}`);
+
+      // === CRITICAL: SKIP DB SAVE FOR NON-LINEAR MODES ===
+      if (mode === 'random' || mode === 'jump') {
+        console.log(`[Review] Skipping DB save for mode: ${mode}`);
+        return res.json({ success: true, skipped: true });
+      }
+
+      // --- Linear Mode: Proceed with DB Save ---
+      
+      // 1. Get current progress
+      const currentProgress = await storage.getUserProgress(questionId);
+      
+      const previousInterval = currentProgress?.interval ?? 0;
+      const previousEaseFactor = currentProgress?.easeFactor ?? 2.5;
+      const previousReviewCount = currentProgress?.reviewCount ?? 0;
+
+      // 2. Calculate SM-2
+      const { interval, easeFactor, reviewCount } = calculateSM2(
+        quality,
+        previousInterval,
+        previousEaseFactor,
+        previousReviewCount
+      );
+
+      const nextReviewDate = addDays(new Date(), interval);
+      const lastReviewedAt = new Date();
+
+      // 3. Upsert to DB
+      await storage.updateUserProgress({
+        questionId,
+        interval,
+        easeFactor,
+        reviewCount,
+        nextReviewDate,
+        lastReviewedAt,
+        userId: 1, 
+      } as any);
+
+      console.log(`[Review] Saved Q${questionId}. New Interval: ${interval}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[Review] Save Failed:", error);
+      res.status(500).json({ message: "Failed to save progress", error: String(error) });
+    }
+  });
