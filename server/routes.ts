@@ -1,8 +1,6 @@
 import type { Express } from "express";
-import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
-import { z } from "zod";
 import { addDays } from "date-fns";
 import { CIVICS_DATA } from "./civics_data";
 import { db } from "./db";
@@ -39,10 +37,31 @@ function calculateSM2(
   return { interval, easeFactor, reviewCount };
 }
 
-export async function registerRoutes(
-  httpServer: Server,
-  app: Express,
-): Promise<Server> {
+// Track if we've seeded the database
+let seeded = false;
+
+async function ensureSeeded() {
+  if (seeded) return;
+  try {
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(questions);
+    if (Number(countResult[0]?.count || 0) === 0) {
+      await db.insert(questions).values(CIVICS_DATA);
+    }
+    seeded = true;
+  } catch (e) {
+    console.error("Seed error:", e);
+  }
+}
+
+export function registerRoutes(app: Express): void {
+  // Seed database on first API request (lazy initialization for serverless)
+  app.use("/api", async (_req, _res, next) => {
+    await ensureSeeded();
+    next();
+  });
+
   // 1. 유저 ID 가져오기 (멀티 유저 지원)
   const getUserId = (req: any) => {
     const headerVal = req.headers["x-user-id"];
@@ -270,17 +289,4 @@ export async function registerRoutes(
     }
   });
 
-  // 초기 실행 시 데이터 없으면 넣기
-  try {
-    const countResult = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(questions);
-    if (Number(countResult[0]?.count || 0) === 0) {
-      await db.insert(questions).values(CIVICS_DATA);
-    }
-  } catch (e) {
-    console.error("Seed error:", e);
-  }
-
-  return httpServer;
 }
