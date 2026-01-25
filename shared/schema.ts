@@ -13,6 +13,8 @@ export const questions = pgTable("questions", {
 
 export const userProgress = pgTable("user_progress", {
   id: serial("id").primaryKey(),
+  // CRITICAL FIX: Added userId column for multi-user support
+  userId: integer("user_id").notNull().default(1),
   questionId: integer("question_id").notNull().references(() => questions.id),
   // SM-2 Algorithm Fields
   interval: integer("interval").notNull().default(0), // Days until next review

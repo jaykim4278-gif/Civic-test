@@ -40,23 +40,24 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
-  // Helper to get User ID from Headers (Simple Auth)
+  // Helper: Get User ID from Headers
   const getUserId = (req: any) => {
     const headerVal = req.headers['x-user-id'];
+    // Default to 1 if header is missing or invalid
     const uid = parseInt(Array.isArray(headerVal) ? headerVal[0] : headerVal);
     return isNaN(uid) ? 1 : uid;
   };
 
-  // Force Reset (Only for current user)
+  // Reset Progress (User Specific)
   app.post("/api/seed", async (req, res) => {
     try {
       const userId = getUserId(req);
       console.log(`Resetting progress for User ${userId}...`);
       
-      // Only delete progress for this user
+      // Only delete progress for this specific user
       await db.delete(userProgress).where(eq(userProgress.userId, userId));
       
-      // Ensure questions exist (idempotent)
+      // Ensure questions exist (idempotent check)
       const countResult = await db.select({ count: sql<number>`count(*)` }).from(questions);
       if (Number(countResult[0]?.count || 0) === 0) {
         await db.insert(questions).values(CIVICS_DATA);
@@ -77,12 +78,10 @@ export async function registerRoutes(
   app.get("/api/study/session", async (req, res) => {
     try {
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      
       const mode = req.query.mode as string | undefined;
       const startId = parseInt(req.query.startId as string) || undefined;
       
       let sessionQuestions;
-      
       if (mode === "random") {
         sessionQuestions = await db.select().from(questions).orderBy(sql`RANDOM()`);
       } else {
@@ -92,16 +91,15 @@ export async function registerRoutes(
         }
         sessionQuestions = await query.orderBy(asc(questions.id));
       }
-
+      // Ensure clean response
       const result = sessionQuestions.map(q => ({ ...q, isNew: true, progress: undefined }));
       res.json(result);
     } catch (error) {
-      console.error("Session Error:", error);
       res.status(500).json({ message: "Failed to load session" });
     }
   });
 
-  // Review Endpoint (Multi-User Aware)
+  // Review Endpoint (Multi-User Logic)
   app.post(api.study.review.path, async (req, res) => {
     try {
       const userId = getUserId(req);
@@ -136,6 +134,7 @@ export async function registerRoutes(
       const lastReviewedAt = new Date();
 
       if (existing) {
+        // Update existing record
         await db.update(userProgress).set({
           interval,
           easeFactor,
@@ -148,8 +147,9 @@ export async function registerRoutes(
           eq(userProgress.userId, userId)
         ));
       } else {
+        // Insert NEW record with userId
         await db.insert(userProgress).values({
-          userId, // Dynamic User ID
+          userId: userId, 
           questionId,
           interval,
           easeFactor,
