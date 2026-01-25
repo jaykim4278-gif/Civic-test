@@ -18,8 +18,14 @@ import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 
-// 🔒 [중요] 서버의 ACCESS_PIN과 똑같은 번호를 여기에 적으세요!
+// 🔒 [중요] server/routes.ts 파일의 ACCESS_PIN과 똑같은 숫자를 적으세요!
 const APP_PIN = "1020";
+
+// 👤 [이름 설정] User 1 -> Jay, User 2 -> Jin
+const USER_NAMES: Record<string, string> = {
+  "1": "Jay",
+  "2": "Jin",
+};
 
 export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -30,13 +36,17 @@ export default function Home() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [, setLocation] = useLocation();
 
+  // 로컬 스토리지에서 유저 ID 불러오기 (기본값 "1")
   const [userId, setUserId] = useState(() => {
     return localStorage.getItem("civics_user_id") || "1";
   });
 
+  // 현재 ID에 맞는 이름 가져오기 (없으면 User 1 표시)
+  const currentUserName = USER_NAMES[userId] || `User ${userId}`;
+
+  // 앱 실행 시 로그인 여부 확인
   useEffect(() => {
     const savedPin = localStorage.getItem("civics_pin");
-    // 저장된 핀이 현재 핀과 일치하는지 확인
     if (savedPin === APP_PIN) {
       setIsAuthenticated(true);
     }
@@ -48,7 +58,6 @@ export default function Home() {
       localStorage.setItem("civics_pin", APP_PIN);
       setIsAuthenticated(true);
     } else {
-      // 힌트 삭제: 틀렸다는 말만 나옵니다.
       alert("Incorrect PIN. Please try again.");
       setPinInput("");
     }
@@ -101,7 +110,7 @@ export default function Home() {
     }
   };
 
-  // === 잠금 화면 (힌트 제거됨) ===
+  // === 잠금 화면 (LOCK SCREEN) ===
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
@@ -163,14 +172,21 @@ export default function Home() {
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-bold text-slate-800">Welcome! 🇺🇸</h1>
+
+            {/* 유저 전환 버튼 (Jay / Jin 이름 표시) */}
             <Button
               variant="outline"
               size="sm"
               onClick={toggleUser}
-              className="flex items-center gap-2 rounded-full border-slate-200 text-slate-600 font-bold px-4"
+              className={cn(
+                "flex items-center gap-2 rounded-full font-bold px-4 transition-all border-2",
+                userId === "1"
+                  ? "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200" // Jay 스타일
+                  : "bg-pink-50 text-pink-600 border-pink-200 hover:bg-pink-100", // Jin 스타일
+              )}
             >
               <Users className="w-4 h-4" />
-              User {userId}
+              {currentUserName}
             </Button>
           </div>
           <div
@@ -351,11 +367,11 @@ export default function Home() {
                   <AlertTriangle className="w-8 h-8" />
                 </div>
                 <h3 className="text-2xl font-bold text-slate-800">
-                  Reset Progress?
+                  Reset {currentUserName}?
                 </h3>
                 <p className="text-slate-500 leading-relaxed">
-                  This will clear all your mastery data, streaks, and review
-                  schedules. This action cannot be undone.
+                  This will clear progress for <b>{currentUserName}</b>. This
+                  action cannot be undone.
                 </p>
                 <div className="flex flex-col w-full gap-3 pt-4">
                   <Button
