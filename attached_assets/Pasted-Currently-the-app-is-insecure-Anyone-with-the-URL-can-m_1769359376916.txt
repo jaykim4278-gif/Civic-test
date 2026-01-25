@@ -1,0 +1,674 @@
+Currently, the app is insecure. Anyone with the URL can modify the data.
+We need to implement a **Simple PIN Authentication**.
+
+**Task:**
+**REPLACE** `server/routes.ts` with the code below.
+Changes:
+1. Define `ACCESS_PIN = "0427"`.
+2. In ALL modification endpoints (`/api/study/review`, `/api/seed`), check for the `x-access-pin` header.
+3. If the PIN doesn't match, return `401 Unauthorized`.
+
+**File: `server/routes.ts`**
+```typescript
+import type { Express } from "express";
+import type { Server } from "http";
+import { storage } from "./storage";
+import { api } from "@shared/routes";
+import { z } from "zod";
+import { addDays } from "date-fns";
+import { CIVICS_DATA } from "./civics_data";
+import { db } from "./db";
+import { asc, sql, eq, desc, gte, and } from "drizzle-orm";
+import { questions, userProgress } from "@shared/schema";
+
+// === SECURITY: SECRET PIN ===
+const ACCESS_PIN = "0427"; // You can change this number
+
+// SM-2 Algorithm
+function calculateSM2(
+  quality: number,
+  previousInterval: number,
+  previousEaseFactor: number,
+  reviewCount: number
+) {
+  let interval: number;
+  let easeFactor: number;
+
+  if (quality >= 3) {
+    if (reviewCount === 0) interval = 1;
+    else if (reviewCount === 1) interval = 6;
+    else interval = Math.round(previousInterval * previousEaseFactor);
+    reviewCount += 1;
+  } else {
+    reviewCount = 0;
+    interval = 1; 
+  }
+
+  easeFactor = previousEaseFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+  if (easeFactor < 1.3) easeFactor = 1.3;
+
+  return { interval, easeFactor, reviewCount };
+}
+
+export async function registerRoutes(
+  httpServer: Server,
+  app: Express
+): Promise<Server> {
+  
+  // Helper: Get User ID
+  const getUserId = (req: any) => {
+    const headerVal = req.headers['x-user-id'];
+    const uid = parseInt(Array.isArray(headerVal) ? headerVal[0] : headerVal);
+    return isNaN(uid) ? 1 : uid;
+  };
+
+  // Helper: Verify PIN
+  const verifyPin = (req: any, res: any) => {
+    const pin = req.headers['x-access-pin'];
+    if (pin !== ACCESS_PIN) {
+      console.log(`[Security] Unauthorized access attempt with PIN: ${pin}`);
+      res.status(401).json({ message: "Invalid Access PIN" });
+      return false;
+    }
+    return true;
+  };
+
+  // Reset Progress (Protected)
+  app.post("/api/seed", async (req, res) => {
+    if (!verifyPin(req, res)) return;
+
+    try {
+      const userId = getUserId(req);
+      console.log(`Resetting progress for User ${userId}...`);
+      await db.delete(userProgress).where(eq(userProgress.userId, userId));
+      
+      const countResult = await db.select({ count: sql<number>`count(*)` }).from(questions);
+      if (Number(countResult[0]?.count || 0) === 0) {
+        await db.insert(questions).values(CIVICS_DATA);
+      }
+      res.json({ message: `Progress reset for User ${userId}.` });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.get(api.questions.list.path, async (req, res) => {
+    const allQuestions = await storage.getQuestions();
+    res.json(allQuestions);
+  });
+
+  app.get("/api/study/session", async (req, res) => {
+    try {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      const mode = req.query.mode as string | undefined;
+      const startId = parseInt(req.query.startId as string) || undefined;
+      
+      // For read-only session, we can be lenient or strict. 
+      // Let's allow reading questions without PIN to show the UI, 
+      // but SAVING will definitely require PIN.
+      
+      let sessionQuestions;
+      if (mode === "random") {
+        sessionQuestions = await db.select().from(questions).orderBy(sql`RANDOM()`);
+      } else {
+        let query = db.select().from(questions);
+        if (startId) {
+          query = query.where(gte(questions.id, startId)) as any;
+        }
+        sessionQuestions = await query.orderBy(asc(questions.id));
+      }
+      const result = sessionQuestions.map(q => ({ ...q, isNew: true, progress: undefined }));
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to load session" });
+    }
+  });
+
+  // Review Endpoint (Protected)
+  app.post(api.study.review.path, async (req, res) => {
+    // SECURITY CHECK
+    if (!verifyPin(req, res)) return;
+
+    try {
+      const userId = getUserId(req);
+      const mode = req.query.mode as string | undefined;
+      const { questionId, quality } = api.study.review.input.parse(req.body);
+      
+      console.log(`[Review] User ${userId} - Q${questionId} (${mode || 'linear'})`);
+
+      if (mode === 'random' || mode === 'jump') {
+        return res.json({ success: true, skipped: true });
+      }
+
+      const [existing] = await db.select().from(userProgress)
+        .where(and(
+          eq(userProgress.questionId, questionId),
+          eq(userProgress.userId, userId)
+        ));
+      
+      const previousInterval = existing?.interval ?? 0;
+      const previousEaseFactor = existing?.easeFactor ?? 2.5;
+      const previousReviewCount = existing?.reviewCount ?? 0;
+
+      const { interval, easeFactor, reviewCount } = calculateSM2(
+        quality,
+        previousInterval,
+        previousEaseFactor,
+        previousReviewCount
+      );
+
+      const nextReviewDate = addDays(new Date(), interval);
+      const lastReviewedAt = new Date();
+
+      if (existing) {
+        await db.update(userProgress).set({
+          interval,
+          easeFactor,
+          reviewCount,
+          nextReviewDate,
+          lastReviewedAt
+        })
+        .where(and(
+          eq(userProgress.questionId, questionId),
+          eq(userProgress.userId, userId)
+        ));
+      } else {
+        await db.insert(userProgress).values({
+          userId: userId, 
+          questionId,
+          interval,
+          easeFactor,
+          reviewCount,
+          nextReviewDate,
+          lastReviewedAt
+        });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[Review] Save Failed:", error);
+      res.status(500).json({ message: "Failed to save progress" });
+    }
+  });
+
+  app.get(api.study.stats.path, async (req, res) => {
+    try {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      const userId = getUserId(req);
+      
+      const allQuestions = await db.select().from(questions).orderBy(asc(questions.id));
+      const totalQuestions = allQuestions.length;
+
+      const allProgress = await db.select().from(userProgress).where(eq(userProgress.userId, userId));
+      const touchedIds = new Set(allProgress.map(p => p.questionId));
+
+      const nextQuestion = allQuestions.find(q => !touchedIds.has(q.id));
+      const nextQuestionId = nextQuestion ? nextQuestion.id : 1;
+
+      const masteredCount = allProgress.filter(p => p.reviewCount > 0 && p.easeFactor > 2.0).length;
+      
+      const reviews = await db.select({ date: sql`DISTINCT DATE(${userProgress.lastReviewedAt})` })
+        .from(userProgress)
+        .where(eq(userProgress.userId, userId))
+        .orderBy(desc(sql`DATE(${userProgress.lastReviewedAt})`));
+
+      let currentStreak = 0;
+      if (reviews.length > 0) {
+        let checkDate = new Date();
+        checkDate.setHours(0,0,0,0);
+        for (const review of reviews) {
+          const rDate = new Date(review.date as string);
+          rDate.setHours(0,0,0,0);
+          const diff = Math.floor((checkDate.getTime() - rDate.getTime()) / 86400000);
+          if (diff <= 1) { currentStreak++; checkDate = rDate; } else break;
+        }
+      }
+
+      res.json({
+        totalQuestions,
+        masteredCount,
+        currentStreak,
+        hardCount: 0, 
+        nextQuestionId, 
+        totalLearned: touchedIds.size, 
+        dueToday: 0
+      });
+    } catch (error) {
+      console.error("Stats Error:", error);
+      res.status(500).json({ message: "Failed to load stats" });
+    }
+  });
+
+  try {
+    const countResult = await db.select({ count: sql<number>`count(*)` }).from(questions);
+    if (Number(countResult[0]?.count || 0) === 0) {
+      await db.insert(questions).values(CIVICS_DATA);
+    }
+  } catch (e) { console.error("Seed error:", e); }
+
+  return httpServer;
+}
+
+#### 2단계: 프론트엔드 통신 장치 수정 (`client/hooks/use-study.ts`)
+요청을 보낼 때 저장된 비밀번호(`x-access-pin`)를 같이 보냅니다.
+
+```markdown
+Step 2: Update frontend to send the PIN header.
+
+**Task:**
+**REPLACE** `client/hooks/use-study.ts`.
+Changes:
+1. `getHeaders` now retrieves `civics_pin` from localStorage and sends it as `x-access-pin`.
+
+**File: `client/hooks/use-study.ts`**
+```typescript
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@shared/routes";
+import { z } from "zod";
+
+type StatsResponse = {
+  totalQuestions: number;
+  masteredCount: number;
+  currentStreak: number;
+  hardCount: number;
+  nextQuestionId: number;
+  totalLearned: number;
+  dueToday: number;
+};
+type ReviewInput = z.infer<typeof api.study.review.input>;
+
+// Helper to get headers with User ID AND PIN
+const getHeaders = () => {
+  const userId = localStorage.getItem("civics_user_id") || "1";
+  const pin = localStorage.getItem("civics_pin") || ""; // Get PIN
+  return {
+    "Content-Type": "application/json",
+    "x-user-id": userId,
+    "x-access-pin": pin
+  };
+};
+
+export function useStudySession(args?: { mode?: string; startId?: number }) {
+  const { mode, startId } = args || {};
+  return useQuery({
+    queryKey: [api.study.session.path, mode, startId],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (mode) params.append("mode", mode);
+      if (startId) params.append("startId", startId.toString());
+      
+      const url = `${api.study.session.path}?${params.toString()}&t=${Date.now()}`;
+      const res = await fetch(url, { 
+        credentials: "include",
+        headers: getHeaders() 
+      });
+      if (!res.ok) throw new Error("Failed to fetch study session");
+      return (await res.json()) as any;
+    },
+    staleTime: 0, 
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useStudyStats() {
+  return useQuery({
+    queryKey: [api.study.stats.path],
+    queryFn: async () => {
+      const res = await fetch(`${api.study.stats.path}?t=${Date.now()}`, { 
+        credentials: "include",
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      
+      const data = await res.json();
+      return data as StatsResponse;
+    },
+    staleTime: 0,
+    gcTime: 0, 
+    refetchOnMount: 'always'
+  });
+}
+
+export function useSubmitReview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: ReviewInput) => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const mode = searchParams.get("mode") || "linear";
+      const validated = api.study.review.input.parse(data);
+
+      const res = await fetch(`${api.study.review.path}?mode=${mode}`, {
+        method: api.study.review.method,
+        headers: getHeaders(), 
+        body: JSON.stringify(validated),
+        credentials: "include",
+      });
+      
+      if (res.status === 401) {
+        alert("🔒 Incorrect PIN. Progress not saved.");
+        throw new Error("Invalid PIN");
+      }
+      
+      if (!res.ok) throw new Error("Failed to submit review");
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.study.stats.path] });
+    },
+  });
+}
+
+export function useQuestions() {
+  return useQuery({
+    queryKey: [api.questions.list.path],
+    queryFn: async () => {
+      const res = await fetch(api.questions.list.path, { 
+        credentials: "include",
+        headers: getHeaders()
+      });
+      if (!res.ok) throw new Error("Failed to fetch questions");
+      return await res.json();
+    },
+  });
+}
+
+#### 3단계: 홈 화면에 도어락 화면 추가 (`client/pages/Home.tsx`)
+비밀번호가 없으면 앱을 아예 못 쓰게 "잠금 화면"을 띄웁니다.
+
+```markdown
+Step 3: Update Home UI to include a PIN Lock Screen.
+
+**Task:**
+**REPLACE** `client/pages/Home.tsx` with the code below.
+Features:
+1. Checks for `civics_pin` in localStorage.
+2. If missing, shows a Lock Screen asking for the PIN.
+3. If PIN matches `0427`, unlocks the app.
+
+**File: `client/pages/Home.tsx`**
+```tsx
+import { Link, useLocation } from "wouter";
+import { BookOpen, Trophy, Zap, Flame, ArrowRight, RotateCcw, AlertTriangle, Users, Lock, Key } from "lucide-react";
+import { Navigation } from "@/components/Navigation";
+import { useStudyStats } from "@/hooks/use-study";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+
+// === CLIENT-SIDE PIN CHECK ===
+// (Real security is on the server, this is just UI blocking)
+const APP_PIN = "0427"; 
+
+export default function Home() {
+  // Auth State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+
+  const { data: stats, isLoading } = useStudyStats();
+  const [jumpInput, setJumpInput] = useState("");
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [, setLocation] = useLocation();
+  const [userId, setUserId] = useState(() => localStorage.getItem("civics_user_id") || "1");
+
+  useEffect(() => {
+    const savedPin = localStorage.getItem("civics_pin");
+    if (savedPin === APP_PIN) {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pinInput === APP_PIN) {
+      localStorage.setItem("civics_pin", APP_PIN);
+      setIsAuthenticated(true);
+    } else {
+      alert("Wrong PIN! Try 0427");
+      setPinInput("");
+    }
+  };
+
+  const toggleUser = () => {
+    const nextUser = userId === "1" ? "2" : "1";
+    localStorage.setItem("civics_user_id", nextUser);
+    setUserId(nextUser);
+    window.location.reload();
+  };
+
+  const handleReset = async () => {
+    try {
+      const res = await fetch("/api/seed", { 
+        method: "POST",
+        headers: { 
+          "x-user-id": userId,
+          "x-access-pin": APP_PIN 
+        }
+      });
+      if (res.status === 401) {
+        alert("Security Error: Invalid PIN on server.");
+        return;
+      }
+      window.location.reload(); 
+    } catch (e) {
+      alert("Failed to reset.");
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val === "") { setJumpInput(""); return; }
+    let num = parseInt(val);
+    if (isNaN(num)) return;
+    if (num > 100) num = 100; 
+    setJumpInput(num.toString());
+  };
+
+  const handleJump = () => {
+    let num = parseInt(jumpInput);
+    if (num < 1) num = 1;
+    if (num > 100) num = 100;
+    if (jumpInput) {
+      setLocation(`/study?startId=${num}&mode=jump`);
+    }
+  };
+
+  // === LOCK SCREEN ===
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl space-y-6"
+        >
+          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-800">
+            <Lock className="w-8 h-8" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">Civics Prep Locked</h1>
+            <p className="text-slate-500 mt-2">Enter the access PIN to continue.</p>
+          </div>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="relative">
+              <Key className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
+              <input 
+                type="password" 
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                placeholder="Enter PIN (0427)"
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-emerald-500 outline-none font-bold text-slate-800"
+                autoFocus
+              />
+            </div>
+            <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold h-12 rounded-xl">
+              Unlock App
+            </Button>
+          </form>
+          <p className="text-xs text-slate-400">Restricted Access • Family Only</p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-12 w-12 border-b-2 border-primary rounded-full"/></div>;
+
+  const masteryPercent = stats ? Math.round((stats.masteredCount / stats.totalQuestions) * 100) : 0;
+  const streak = stats?.currentStreak || 0;
+  const nextQ = stats?.nextQuestionId || 1; 
+
+  return (
+    <div className="min-h-screen bg-background pb-24 md:pb-8 relative">
+      <header className="bg-white border-b border-border sticky top-0 z-20">
+        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-bold text-slate-800">Welcome! 🇺🇸</h1>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={toggleUser}
+              className="flex items-center gap-2 rounded-full border-slate-200 text-slate-600 font-bold px-4"
+            >
+              <Users className="w-4 h-4" />
+              User {userId}
+            </Button>
+          </div>
+          <div className={cn("flex items-center gap-2 px-3 py-1.5 rounded-full font-bold text-sm transition-colors", streak > 0 ? "bg-orange-50 text-orange-600" : "bg-slate-100 text-slate-400")}>
+            <Flame className={cn("w-5 h-5", streak > 0 ? "fill-orange-500" : "")} />
+            <span>{streak} Day</span>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-6 py-8 space-y-10">
+        <section className="bg-white rounded-[2.5rem] p-8 border-2 border-slate-100 shadow-xl flex flex-col md:flex-row items-center gap-12">
+          <div className="relative w-48 h-48 flex items-center justify-center shrink-0">
+            <svg className="w-full h-full -rotate-90">
+              <circle cx="96" cy="96" r="88" fill="transparent" stroke="currentColor" strokeWidth="12" className="text-slate-100" />
+              <motion.circle cx="96" cy="96" r="88" fill="transparent" stroke="currentColor" strokeWidth="12" strokeDasharray={552.92} initial={{ strokeDashoffset: 552.92 }} animate={{ strokeDashoffset: 552.92 - (552.92 * masteryPercent) / 100 }} className="text-emerald-500" strokeLinecap="round" />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-4xl font-black text-slate-800">{masteryPercent}%</span>
+              <span className="text-[10px] font-bold uppercase text-slate-400">Mastered</span>
+            </div>
+          </div>
+
+          <div className="flex-1 w-full flex flex-col gap-8">
+            <Link href={`/study?startId=${nextQ}`}>
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white p-5 rounded-2xl font-bold text-xl shadow-lg flex items-center justify-center gap-3">
+                <BookOpen className="w-6 h-6" />
+                Continue Learning (Q{nextQ})
+              </motion.button>
+            </Link>
+
+            <Link href="/study?mode=random">
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full bg-white hover:bg-slate-50 text-slate-600 border-2 border-slate-200 p-5 rounded-2xl font-bold text-xl flex items-center justify-center gap-3">
+                <Zap className="w-6 h-6 text-orange-500" />
+                Random Practice
+              </motion.button>
+            </Link>
+
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-center gap-3">
+              <span className="text-xs font-bold uppercase text-slate-400">Jump to:</span>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-400">#</span>
+                <input 
+                  type="number" 
+                  min="1"
+                  max="100"
+                  value={jumpInput} 
+                  onChange={handleInputChange}
+                  placeholder="10" 
+                  className="w-16 text-center p-2 rounded-xl border-2 border-slate-200 focus:border-emerald-500 outline-none font-bold text-slate-700 bg-slate-50" 
+                />
+                <button 
+                  onClick={handleJump}
+                  disabled={!jumpInput}
+                  className="bg-slate-800 text-white p-2 rounded-xl disabled:opacity-50 hover:bg-slate-700 transition-colors"
+                >
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h3 className="text-2xl font-bold text-slate-800 mb-6 px-2">Library</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Link href="/questions">
+              <div className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm hover:border-blue-100 cursor-pointer transition-colors flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center"><BookOpen className="w-6 h-6" /></div>
+                <div><h4 className="text-lg font-bold text-slate-800">Browse All</h4><p className="text-slate-500 text-sm">View all 100 questions</p></div>
+              </div>
+            </Link>
+            <Link href="/vocabulary">
+              <div className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm hover:border-purple-100 cursor-pointer transition-colors flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-500 flex items-center justify-center"><Trophy className="w-6 h-6" /></div>
+                <div><h4 className="text-lg font-bold text-slate-800">Vocabulary</h4><p className="text-slate-500 text-sm">Master 300+ core terms</p></div>
+              </div>
+            </Link>
+          </div>
+        </section>
+
+        <section className="pt-10 border-t border-slate-100 flex justify-center">
+          <button 
+            onClick={() => setShowResetConfirm(true)}
+            className="flex items-center gap-2 text-slate-400 hover:text-red-500 transition-colors text-sm font-medium"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Reset All Study Progress
+          </button>
+        </section>
+      </main>
+      
+      <Navigation />
+
+      <AnimatePresence>
+        {showResetConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowResetConfirm(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-8 overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-2 bg-red-500" />
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-red-500">
+                  <AlertTriangle className="w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-800">Reset Progress?</h3>
+                <p className="text-slate-500 leading-relaxed">
+                  This will clear all your mastery data, streaks, and review schedules. This action cannot be undone.
+                </p>
+                <div className="flex flex-col w-full gap-3 pt-4">
+                  <Button
+                    onClick={handleReset}
+                    className="w-full bg-red-500 hover:bg-red-600 text-white font-bold h-12 rounded-xl"
+                  >
+                    Yes, Reset Everything
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowResetConfirm(false)}
+                    className="w-full text-slate-400 hover:text-slate-600 font-bold h-12 rounded-xl"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
