@@ -2,10 +2,30 @@ import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
-import { asc, sql, eq, desc, gte, and } from "drizzle-orm";
+import { pgTable, text, serial, integer, timestamp, real } from "drizzle-orm/pg-core";
+import { asc, sql, eq, gte, and } from "drizzle-orm";
 import { addDays } from "date-fns";
-import * as schema from "../shared/schema";
-import { questions, userProgress } from "../shared/schema";
+
+// Schema definitions (inline to avoid module resolution issues in serverless)
+const questions = pgTable("questions", {
+  id: serial("id").primaryKey(),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  translation: text("translation"),
+  category: text("category").default("general"),
+  keywords: text("keywords"),
+});
+
+const userProgress = pgTable("user_progress", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().default(1),
+  questionId: integer("question_id").notNull(),
+  interval: integer("interval").notNull().default(0),
+  easeFactor: real("ease_factor").notNull().default(2.5),
+  reviewCount: integer("review_count").notNull().default(0),
+  nextReviewDate: timestamp("next_review_date").notNull().defaultNow(),
+  lastReviewedAt: timestamp("last_reviewed_at"),
+});
 
 // Database setup
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -13,30 +33,7 @@ if (!DATABASE_URL) {
   throw new Error("DATABASE_URL must be set");
 }
 const sqlClient = neon(DATABASE_URL);
-const db = drizzle(sqlClient, { schema });
-
-// Civics data for seeding
-const CIVICS_DATA = [
-  { question: "What is the supreme law of the land?", answer: "the Constitution", translation: "이 나라의 최고 법은 무엇입니까? - 헌법", category: "American Government - Principles of American Democracy", keywords: '[{"word":"Supreme","definition":"최고의"},{"word":"Law","definition":"법"},{"word":"Constitution","definition":"헌법"}]' },
-  { question: "What does the Constitution do?", answer: "sets up the government, defines the government, protects basic rights of Americans", translation: "헌법은 무엇을 합니까? - 정부를 수립하고, 정부를 정의하고, 미국인들의 기본권을 보호합니다", category: "American Government - Principles of American Democracy", keywords: '[{"word":"Constitution","definition":"헌법"},{"word":"Government","definition":"정부"},{"word":"Rights","definition":"권리"}]' },
-];
-
-// Track seeding
-let seeded = false;
-async function ensureSeeded() {
-  if (seeded) return;
-  try {
-    const countResult = await db.select({ count: sql<number>`count(*)` }).from(questions);
-    if (Number(countResult[0]?.count || 0) === 0) {
-      // Fetch full data from the original civics_data module would be better,
-      // but for now we'll rely on the database already having data or manual seeding
-      console.log("Database appears empty, seeding may be needed");
-    }
-    seeded = true;
-  } catch (e) {
-    console.error("Seed check error:", e);
-  }
-}
+const db = drizzle(sqlClient);
 
 // Express app
 const app = express();
@@ -77,12 +74,6 @@ function calculateSM2(quality: number, previousInterval: number, previousEaseFac
   if (easeFactor < 1.3) easeFactor = 1.3;
   return { interval, easeFactor, reviewCount };
 }
-
-// Seed middleware
-app.use("/api", async (_req, _res, next) => {
-  await ensureSeeded();
-  next();
-});
 
 // Routes
 app.get("/api/questions", async (_req, res) => {
