@@ -9,12 +9,15 @@ import { db } from "./db";
 import { asc, sql, eq, desc, gte, and } from "drizzle-orm";
 import { questions, userProgress } from "@shared/schema";
 
-// SM-2 Algorithm
+// === 🔒 SECURITY: 비밀번호 설정 (원하는 번호로 변경 가능) ===
+const ACCESS_PIN = "1020";
+
+// SM-2 알고리즘 (기억력 학습)
 function calculateSM2(
   quality: number,
   previousInterval: number,
   previousEaseFactor: number,
-  reviewCount: number
+  reviewCount: number,
 ) {
   let interval: number;
   let easeFactor: number;
@@ -26,10 +29,11 @@ function calculateSM2(
     reviewCount += 1;
   } else {
     reviewCount = 0;
-    interval = 1; 
+    interval = 1;
   }
 
-  easeFactor = previousEaseFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+  easeFactor =
+    previousEaseFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
   if (easeFactor < 1.3) easeFactor = 1.3;
 
   return { interval, easeFactor, reviewCount };
@@ -37,35 +41,47 @@ function calculateSM2(
 
 export async function registerRoutes(
   httpServer: Server,
-  app: Express
+  app: Express,
 ): Promise<Server> {
-  
-  // Helper: Get User ID from Headers
+  // 1. 유저 ID 가져오기 (멀티 유저 지원)
   const getUserId = (req: any) => {
-    const headerVal = req.headers['x-user-id'];
-    // Default to 1 if header is missing or invalid
+    const headerVal = req.headers["x-user-id"];
     const uid = parseInt(Array.isArray(headerVal) ? headerVal[0] : headerVal);
     return isNaN(uid) ? 1 : uid;
   };
 
-  // Reset Progress (User Specific)
+  // 2. 핀 번호 검사 (보안 기능)
+  const verifyPin = (req: any, res: any) => {
+    const pin = req.headers["x-access-pin"];
+    // 핀 번호가 틀리면 가차없이 거절 (401 Unauthorized)
+    if (pin !== ACCESS_PIN) {
+      console.log(`[Security] Unauthorized access attempt with PIN: ${pin}`);
+      res.status(401).json({ message: "Invalid Access PIN" });
+      return false;
+    }
+    return true;
+  };
+
+  // [초기화 기능] - 비밀번호 검사 필수
   app.post("/api/seed", async (req, res) => {
+    if (!verifyPin(req, res)) return;
+
     try {
       const userId = getUserId(req);
       console.log(`Resetting progress for User ${userId}...`);
-      
-      // Only delete progress for this specific user
+
+      // 해당 유저의 데이터만 삭제
       await db.delete(userProgress).where(eq(userProgress.userId, userId));
-      
-      // Ensure questions exist (idempotent check)
-      const countResult = await db.select({ count: sql<number>`count(*)` }).from(questions);
+
+      // 문제가 하나도 없으면 기본 문제 데이터 삽입
+      const countResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(questions);
       if (Number(countResult[0]?.count || 0) === 0) {
         await db.insert(questions).values(CIVICS_DATA);
       }
-
       res.json({ message: `Progress reset for User ${userId}.` });
     } catch (err: any) {
-      console.error("Seed failed:", err);
       res.status(500).json({ message: err.message });
     }
   });
@@ -77,13 +93,19 @@ export async function registerRoutes(
 
   app.get("/api/study/session", async (req, res) => {
     try {
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate",
+      );
       const mode = req.query.mode as string | undefined;
       const startId = parseInt(req.query.startId as string) || undefined;
-      
+
       let sessionQuestions;
       if (mode === "random") {
-        sessionQuestions = await db.select().from(questions).orderBy(sql`RANDOM()`);
+        sessionQuestions = await db
+          .select()
+          .from(questions)
+          .orderBy(sql`RANDOM()`);
       } else {
         let query = db.select().from(questions);
         if (startId) {
@@ -91,34 +113,46 @@ export async function registerRoutes(
         }
         sessionQuestions = await query.orderBy(asc(questions.id));
       }
-      // Ensure clean response
-      const result = sessionQuestions.map(q => ({ ...q, isNew: true, progress: undefined }));
+      const result = sessionQuestions.map((q) => ({
+        ...q,
+        isNew: true,
+        progress: undefined,
+      }));
       res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Failed to load session" });
     }
   });
 
-  // Review Endpoint (Multi-User Logic)
+  // [학습 저장 기능] - 비밀번호 검사 필수
   app.post(api.study.review.path, async (req, res) => {
+    // 저장하기 전에 비밀번호 확인!
+    if (!verifyPin(req, res)) return;
+
     try {
       const userId = getUserId(req);
       const mode = req.query.mode as string | undefined;
       const { questionId, quality } = api.study.review.input.parse(req.body);
-      
-      console.log(`[Review] User ${userId} - Q${questionId} (${mode || 'linear'})`);
 
-      if (mode === 'random' || mode === 'jump') {
+      console.log(
+        `[Review] User ${userId} - Q${questionId} (${mode || "linear"})`,
+      );
+
+      if (mode === "random" || mode === "jump") {
         return res.json({ success: true, skipped: true });
       }
 
-      // Check existence for THIS USER
-      const [existing] = await db.select().from(userProgress)
-        .where(and(
-          eq(userProgress.questionId, questionId),
-          eq(userProgress.userId, userId)
-        ));
-      
+      // 현재 유저의 기존 기록 확인
+      const [existing] = await db
+        .select()
+        .from(userProgress)
+        .where(
+          and(
+            eq(userProgress.questionId, questionId),
+            eq(userProgress.userId, userId),
+          ),
+        );
+
       const previousInterval = existing?.interval ?? 0;
       const previousEaseFactor = existing?.easeFactor ?? 2.5;
       const previousReviewCount = existing?.reviewCount ?? 0;
@@ -127,35 +161,39 @@ export async function registerRoutes(
         quality,
         previousInterval,
         previousEaseFactor,
-        previousReviewCount
+        previousReviewCount,
       );
 
       const nextReviewDate = addDays(new Date(), interval);
       const lastReviewedAt = new Date();
 
       if (existing) {
-        // Update existing record
-        await db.update(userProgress).set({
-          interval,
-          easeFactor,
-          reviewCount,
-          nextReviewDate,
-          lastReviewedAt
-        })
-        .where(and(
-          eq(userProgress.questionId, questionId),
-          eq(userProgress.userId, userId)
-        ));
+        // 기존 기록 업데이트 (User ID 확인)
+        await db
+          .update(userProgress)
+          .set({
+            interval,
+            easeFactor,
+            reviewCount,
+            nextReviewDate,
+            lastReviewedAt,
+          })
+          .where(
+            and(
+              eq(userProgress.questionId, questionId),
+              eq(userProgress.userId, userId),
+            ),
+          );
       } else {
-        // Insert NEW record with userId
+        // 새 기록 저장 (User ID 포함)
         await db.insert(userProgress).values({
-          userId: userId, 
+          userId: userId,
           questionId,
           interval,
           easeFactor,
           reviewCount,
           nextReviewDate,
-          lastReviewedAt
+          lastReviewedAt,
         });
       }
 
@@ -168,24 +206,34 @@ export async function registerRoutes(
 
   app.get(api.study.stats.path, async (req, res) => {
     try {
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate",
+      );
       const userId = getUserId(req);
-      
-      const allQuestions = await db.select().from(questions).orderBy(asc(questions.id));
+
+      const allQuestions = await db
+        .select()
+        .from(questions)
+        .orderBy(asc(questions.id));
       const totalQuestions = allQuestions.length;
 
-      // Filter progress by User ID
-      const allProgress = await db.select().from(userProgress).where(eq(userProgress.userId, userId));
-      const touchedIds = new Set(allProgress.map(p => p.questionId));
+      // 현재 유저의 데이터만 조회
+      const allProgress = await db
+        .select()
+        .from(userProgress)
+        .where(eq(userProgress.userId, userId));
+      const touchedIds = new Set(allProgress.map((p) => p.questionId));
 
-      const nextQuestion = allQuestions.find(q => !touchedIds.has(q.id));
+      const nextQuestion = allQuestions.find((q) => !touchedIds.has(q.id));
       const nextQuestionId = nextQuestion ? nextQuestion.id : 1;
 
-      console.log(`[Stats] User ${userId} - Touched: ${touchedIds.size}, Next Q: ${nextQuestionId}`);
+      const masteredCount = allProgress.filter(
+        (p) => p.reviewCount > 0 && p.easeFactor > 2.0,
+      ).length;
 
-      const masteredCount = allProgress.filter(p => p.reviewCount > 0 && p.easeFactor > 2.0).length;
-      
-      const reviews = await db.select({ date: sql`DISTINCT DATE(${userProgress.lastReviewedAt})` })
+      const reviews = await db
+        .select({ date: sql`DISTINCT DATE(${userProgress.lastReviewedAt})` })
         .from(userProgress)
         .where(eq(userProgress.userId, userId))
         .orderBy(desc(sql`DATE(${userProgress.lastReviewedAt})`));
@@ -193,12 +241,17 @@ export async function registerRoutes(
       let currentStreak = 0;
       if (reviews.length > 0) {
         let checkDate = new Date();
-        checkDate.setHours(0,0,0,0);
+        checkDate.setHours(0, 0, 0, 0);
         for (const review of reviews) {
           const rDate = new Date(review.date as string);
-          rDate.setHours(0,0,0,0);
-          const diff = Math.floor((checkDate.getTime() - rDate.getTime()) / 86400000);
-          if (diff <= 1) { currentStreak++; checkDate = rDate; } else break;
+          rDate.setHours(0, 0, 0, 0);
+          const diff = Math.floor(
+            (checkDate.getTime() - rDate.getTime()) / 86400000,
+          );
+          if (diff <= 1) {
+            currentStreak++;
+            checkDate = rDate;
+          } else break;
         }
       }
 
@@ -206,10 +259,10 @@ export async function registerRoutes(
         totalQuestions,
         masteredCount,
         currentStreak,
-        hardCount: 0, 
-        nextQuestionId, 
-        totalLearned: touchedIds.size, 
-        dueToday: 0
+        hardCount: 0,
+        nextQuestionId,
+        totalLearned: touchedIds.size,
+        dueToday: 0,
       });
     } catch (error) {
       console.error("Stats Error:", error);
@@ -217,13 +270,17 @@ export async function registerRoutes(
     }
   });
 
-  // Initial Seed Check
+  // 초기 실행 시 데이터 없으면 넣기
   try {
-    const countResult = await db.select({ count: sql<number>`count(*)` }).from(questions);
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(questions);
     if (Number(countResult[0]?.count || 0) === 0) {
       await db.insert(questions).values(CIVICS_DATA);
     }
-  } catch (e) { console.error("Seed error:", e); }
+  } catch (e) {
+    console.error("Seed error:", e);
+  }
 
   return httpServer;
 }

@@ -1,0 +1,313 @@
+Currently, the UI displays generic names like "User 1" and "User 2".
+We want to personalize this.
+Please **REPLACE** `client/pages/Home.tsx` with the code below.
+
+**Changes:**
+1. Added a `USER_NAMES` mapping: ID "1" -> "Jay", ID "2" -> "Jin".
+2. Updated the **Toggle Button** in the header to show "Jay" or "Jin".
+3. Updated the **Reset Modal** to show "Reset Jay's Progress?" instead of "User 1".
+
+**File: `client/pages/Home.tsx`**
+```tsx
+import { Link, useLocation } from "wouter";
+import { BookOpen, Trophy, Zap, Flame, ArrowRight, RotateCcw, AlertTriangle, Users, Lock, Key } from "lucide-react";
+import { Navigation } from "@/components/Navigation";
+import { useStudyStats } from "@/hooks/use-study";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+
+// === CLIENT-SIDE PIN CHECK ===
+const APP_PIN = "0427"; 
+
+// === 👤 USER NAME MAPPING (Display Only) ===
+const USER_NAMES: Record<string, string> = {
+  "1": "Jay",
+  "2": "Jin"
+};
+
+export default function Home() {
+  // Auth State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+
+  const { data: stats, isLoading } = useStudyStats();
+  const [jumpInput, setJumpInput] = useState("");
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [, setLocation] = useLocation();
+  
+  // Use a callback to get localStorage so it doesn't error during SSR/initial render
+  const [userId, setUserId] = useState(() => {
+    return localStorage.getItem("civics_user_id") || "1";
+  });
+
+  // Get current display name
+  const currentUserName = USER_NAMES[userId] || `User ${userId}`;
+
+  useEffect(() => {
+    const savedPin = localStorage.getItem("civics_pin");
+    if (savedPin === APP_PIN) {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pinInput === APP_PIN) {
+      localStorage.setItem("civics_pin", APP_PIN);
+      setIsAuthenticated(true);
+    } else {
+      alert("Incorrect PIN. Please try again.");
+      setPinInput("");
+    }
+  };
+
+  const toggleUser = () => {
+    const nextUser = userId === "1" ? "2" : "1";
+    localStorage.setItem("civics_user_id", nextUser);
+    setUserId(nextUser);
+    window.location.reload();
+  };
+
+  const handleReset = async () => {
+    try {
+      const res = await fetch("/api/seed", { 
+        method: "POST",
+        headers: { 
+          "x-user-id": userId,
+          "x-access-pin": APP_PIN 
+        }
+      });
+      if (res.status === 401) {
+        alert("Security Error: PIN mismatch with server.");
+        return;
+      }
+      window.location.reload(); 
+    } catch (e) {
+      alert("Failed to reset.");
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val === "") { setJumpInput(""); return; }
+    let num = parseInt(val);
+    if (isNaN(num)) return;
+    if (num > 100) num = 100; 
+    setJumpInput(num.toString());
+  };
+
+  const handleJump = () => {
+    let num = parseInt(jumpInput);
+    if (num < 1) num = 1;
+    if (num > 100) num = 100;
+    if (jumpInput) {
+      setLocation(`/study?startId=${num}&mode=jump`);
+    }
+  };
+
+  // === LOCK SCREEN ===
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl space-y-6"
+        >
+          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-800">
+            <Lock className="w-8 h-8" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">Civics Prep Locked</h1>
+            <p className="text-slate-500 mt-2">Enter your access PIN.</p>
+          </div>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="relative">
+              <Key className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
+              <input 
+                type="password" 
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                placeholder="Enter PIN" 
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-emerald-500 outline-none font-bold text-slate-800"
+                autoFocus
+              />
+            </div>
+            <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold h-12 rounded-xl">
+              Unlock App
+            </Button>
+          </form>
+          <p className="text-xs text-slate-400">Authorized Users Only</p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-12 w-12 border-b-2 border-primary rounded-full"/></div>;
+
+  const masteryPercent = stats ? Math.round((stats.masteredCount / stats.totalQuestions) * 100) : 0;
+  const streak = stats?.currentStreak || 0;
+  const nextQ = stats?.nextQuestionId || 1; 
+
+  return (
+    <div className="min-h-screen bg-background pb-24 md:pb-8 relative">
+      <header className="bg-white border-b border-border sticky top-0 z-20">
+        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-bold text-slate-800">Welcome! 🇺🇸</h1>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={toggleUser}
+              className={cn(
+                "flex items-center gap-2 rounded-full font-bold px-4 transition-all",
+                userId === "1" 
+                  ? "bg-slate-100 text-slate-700 border-slate-200" 
+                  : "bg-pink-50 text-pink-600 border-pink-200" // Jin일 때 분홍색 포인트
+              )}
+            >
+              <Users className="w-4 h-4" />
+              {currentUserName} {/* Jay or Jin */}
+            </Button>
+          </div>
+          <div className={cn("flex items-center gap-2 px-3 py-1.5 rounded-full font-bold text-sm transition-colors", streak > 0 ? "bg-orange-50 text-orange-600" : "bg-slate-100 text-slate-400")}>
+            <Flame className={cn("w-5 h-5", streak > 0 ? "fill-orange-500" : "")} />
+            <span>{streak} Day</span>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-6 py-8 space-y-10">
+        <section className="bg-white rounded-[2.5rem] p-8 border-2 border-slate-100 shadow-xl flex flex-col md:flex-row items-center gap-12">
+          <div className="relative w-48 h-48 flex items-center justify-center shrink-0">
+            <svg className="w-full h-full -rotate-90">
+              <circle cx="96" cy="96" r="88" fill="transparent" stroke="currentColor" strokeWidth="12" className="text-slate-100" />
+              <motion.circle cx="96" cy="96" r="88" fill="transparent" stroke="currentColor" strokeWidth="12" strokeDasharray={552.92} initial={{ strokeDashoffset: 552.92 }} animate={{ strokeDashoffset: 552.92 - (552.92 * masteryPercent) / 100 }} className="text-emerald-500" strokeLinecap="round" />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-4xl font-black text-slate-800">{masteryPercent}%</span>
+              <span className="text-[10px] font-bold uppercase text-slate-400">Mastered</span>
+            </div>
+          </div>
+
+          <div className="flex-1 w-full flex flex-col gap-8">
+            <Link href={`/study?startId=${nextQ}`}>
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white p-5 rounded-2xl font-bold text-xl shadow-lg flex items-center justify-center gap-3">
+                <BookOpen className="w-6 h-6" />
+                Continue Learning (Q{nextQ})
+              </motion.button>
+            </Link>
+
+            <Link href="/study?mode=random">
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full bg-white hover:bg-slate-50 text-slate-600 border-2 border-slate-200 p-5 rounded-2xl font-bold text-xl flex items-center justify-center gap-3">
+                <Zap className="w-6 h-6 text-orange-500" />
+                Random Practice
+              </motion.button>
+            </Link>
+
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-center gap-3">
+              <span className="text-xs font-bold uppercase text-slate-400">Jump to:</span>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-400">#</span>
+                <input 
+                  type="number" 
+                  min="1"
+                  max="100"
+                  value={jumpInput} 
+                  onChange={handleInputChange}
+                  placeholder="10" 
+                  className="w-16 text-center p-2 rounded-xl border-2 border-slate-200 focus:border-emerald-500 outline-none font-bold text-slate-700 bg-slate-50" 
+                />
+                <button 
+                  onClick={handleJump}
+                  disabled={!jumpInput}
+                  className="bg-slate-800 text-white p-2 rounded-xl disabled:opacity-50 hover:bg-slate-700 transition-colors"
+                >
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h3 className="text-2xl font-bold text-slate-800 mb-6 px-2">Library</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Link href="/questions">
+              <div className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm hover:border-blue-100 cursor-pointer transition-colors flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center"><BookOpen className="w-6 h-6" /></div>
+                <div><h4 className="text-lg font-bold text-slate-800">Browse All</h4><p className="text-slate-500 text-sm">View all 100 questions</p></div>
+              </div>
+            </Link>
+            <Link href="/vocabulary">
+              <div className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm hover:border-purple-100 cursor-pointer transition-colors flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-500 flex items-center justify-center"><Trophy className="w-6 h-6" /></div>
+                <div><h4 className="text-lg font-bold text-slate-800">Vocabulary</h4><p className="text-slate-500 text-sm">Master 300+ core terms</p></div>
+              </div>
+            </Link>
+          </div>
+        </section>
+
+        <section className="pt-10 border-t border-slate-100 flex justify-center">
+          <button 
+            onClick={() => setShowResetConfirm(true)}
+            className="flex items-center gap-2 text-slate-400 hover:text-red-500 transition-colors text-sm font-medium"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Reset All Study Progress
+          </button>
+        </section>
+      </main>
+      
+      <Navigation />
+
+      <AnimatePresence>
+        {showResetConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowResetConfirm(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-8 overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-2 bg-red-500" />
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-red-500">
+                  <AlertTriangle className="w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-800">Reset {currentUserName}?</h3>
+                <p className="text-slate-500 leading-relaxed">
+                  This will clear progress for <b>{currentUserName}</b>. This action cannot be undone.
+                </p>
+                <div className="flex flex-col w-full gap-3 pt-4">
+                  <Button
+                    onClick={handleReset}
+                    className="w-full bg-red-500 hover:bg-red-600 text-white font-bold h-12 rounded-xl"
+                  >
+                    Yes, Reset Everything
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowResetConfirm(false)}
+                    className="w-full text-slate-400 hover:text-slate-600 font-bold h-12 rounded-xl"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
