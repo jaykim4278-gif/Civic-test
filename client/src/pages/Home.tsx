@@ -11,6 +11,7 @@ import {
   Lock,
   Key,
   Headphones,
+  BookMarked,
 } from "lucide-react";
 import { Navigation } from "@/components/Navigation";
 import { useStudyStats } from "@/hooks/use-study";
@@ -331,7 +332,7 @@ export default function Home() {
               </div>
             </Link>
             <Link href="/n400">
-              <div className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm hover:border-emerald-200 cursor-pointer transition-colors flex items-center gap-4 md:col-span-2">
+              <div className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm hover:border-emerald-200 cursor-pointer transition-colors flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center">
                   <Headphones className="w-6 h-6" />
                 </div>
@@ -340,7 +341,23 @@ export default function Home() {
                     N-400 면접 듣기
                   </h4>
                   <p className="text-slate-500 text-sm">
-                    Listen to all N-400 interview questions · 영어 음성 + 한글 해석
+                    Interview questions · 영어 음성
+                  </p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-slate-300" />
+              </div>
+            </Link>
+            <Link href="/n400-vocab">
+              <div className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm hover:border-emerald-200 cursor-pointer transition-colors flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center">
+                  <BookMarked className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-lg font-bold text-slate-800">
+                    N-400 단어장
+                  </h4>
+                  <p className="text-slate-500 text-sm">
+                    Interview vocabulary · 발음 + 뜻
                   </p>
                 </div>
                 <ArrowRight className="w-5 h-5 text-slate-300" />

@@ -11,6 +11,7 @@ import StudySession from "@/pages/StudySession";
 import QuestionsList from "@/pages/QuestionsList";
 import VocabularyList from "@/pages/VocabularyList";
 import N400Practice from "@/pages/N400Practice";
+import N400Vocabulary from "@/pages/N400Vocabulary";
 
 function Router() {
   return (
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/questions" component={QuestionsList} />
       <Route path="/vocabulary" component={VocabularyList} />
       <Route path="/n400" component={N400Practice} />
+      <Route path="/n400-vocab" component={N400Vocabulary} />
 
       {/* Fallback to 404 */}
       <Route component={NotFound} />
