@@ -10,6 +10,7 @@ import Home from "@/pages/Home";
 import StudySession from "@/pages/StudySession";
 import QuestionsList from "@/pages/QuestionsList";
 import VocabularyList from "@/pages/VocabularyList";
+import N400Practice from "@/pages/N400Practice";
 
 function Router() {
   return (
@@ -18,7 +19,8 @@ function Router() {
       <Route path="/study" component={StudySession} />
       <Route path="/questions" component={QuestionsList} />
       <Route path="/vocabulary" component={VocabularyList} />
-      
+      <Route path="/n400" component={N400Practice} />
+
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
