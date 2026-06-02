@@ -3,7 +3,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { pgTable, text, serial, integer, timestamp, real } from "drizzle-orm/pg-core";
-import { asc, sql, eq, gte, and } from "drizzle-orm";
+import { asc, sql, eq, desc, and } from "drizzle-orm";
 import { addDays } from "date-fns";
 
 // Schema definitions (inline to avoid module resolution issues in serverless)
@@ -89,16 +89,18 @@ app.get("/api/questions", async (_req, res) => {
 app.get("/api/study/session", async (req, res) => {
   try {
     const mode = req.query.mode as string | undefined;
-    const startId = parseInt(req.query.startId as string) || undefined;
+    // ⚠️ 이 파일이 Vercel 프로덕션에서 실행되는 서버리스 함수다.
+    // server/routes.ts(로컬 dev용)와 반드시 동일한 로직을 유지할 것!
+    // 전체 카드를 모드 방향대로 반환하고, 시작 위치(startId)는 클라이언트가 처리한다.
     let sessionQuestions;
     if (mode === "random") {
       sessionQuestions = await db.select().from(questions).orderBy(sql`RANDOM()`);
+    } else if (mode === "reverse") {
+      // 역순: 100 -> 99 -> ... -> 1
+      sessionQuestions = await db.select().from(questions).orderBy(desc(questions.id));
     } else {
-      let query = db.select().from(questions);
-      if (startId) {
-        query = query.where(gte(questions.id, startId)) as any;
-      }
-      sessionQuestions = await query.orderBy(asc(questions.id));
+      // 정순: 1 -> 2 -> ... -> 100
+      sessionQuestions = await db.select().from(questions).orderBy(asc(questions.id));
     }
     const result = sessionQuestions.map((q) => ({ ...q, isNew: true, progress: undefined }));
     res.json(result);
@@ -140,7 +142,7 @@ app.post("/api/study/review", async (req, res) => {
     const userId = getUserId(req);
     const mode = req.query.mode as string | undefined;
     const { questionId, quality } = req.body;
-    if (mode === "random" || mode === "jump") {
+    if (mode === "random" || mode === "jump" || mode === "reverse") {
       return res.json({ success: true, skipped: true });
     }
     const [existing] = await db.select().from(userProgress).where(and(eq(userProgress.questionId, questionId), eq(userProgress.userId, userId)));
