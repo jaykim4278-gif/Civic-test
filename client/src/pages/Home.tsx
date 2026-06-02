@@ -5,6 +5,7 @@ import {
   Zap,
   Flame,
   ArrowRight,
+  ArrowLeft,
   RotateCcw,
   AlertTriangle,
   Users,
@@ -109,6 +110,16 @@ export default function Home() {
     if (num > 100) num = 100;
     if (jumpInput) {
       setLocation(`/study?startId=${num}&mode=jump`);
+    }
+  };
+
+  // 역순 학습: 입력한 번호부터 거꾸로 (예: 100 → 99 → 98 ...)
+  const handleJumpReverse = () => {
+    let num = parseInt(jumpInput);
+    if (num < 1) num = 1;
+    if (num > 100) num = 100;
+    if (jumpInput) {
+      setLocation(`/study?startId=${num}&mode=reverse`);
     }
   };
 
@@ -269,7 +280,7 @@ export default function Home() {
               </motion.button>
             </Link>
 
-            <div className="pt-4 border-t border-slate-100 flex items-center justify-center gap-3">
+            <div className="pt-4 border-t border-slate-100 flex flex-col items-center gap-3">
               <span className="text-xs font-bold uppercase text-slate-400">
                 Jump to:
               </span>
@@ -285,11 +296,22 @@ export default function Home() {
                   className="w-16 text-center p-2 rounded-xl border-2 border-slate-200 focus:border-emerald-500 outline-none font-bold text-slate-700 bg-slate-50"
                 />
                 <button
+                  onClick={handleJumpReverse}
+                  disabled={!jumpInput}
+                  title="이 번호부터 거꾸로 학습 (예: 100 → 99 → 98)"
+                  className="flex items-center gap-1 bg-slate-100 text-slate-700 border-2 border-slate-200 px-3 py-2 rounded-xl font-bold text-sm disabled:opacity-50 hover:bg-slate-200 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  거꾸로
+                </button>
+                <button
                   onClick={handleJump}
                   disabled={!jumpInput}
-                  className="bg-slate-800 text-white p-2 rounded-xl disabled:opacity-50 hover:bg-slate-700 transition-colors"
+                  title="이 번호부터 순서대로 학습 (예: 100 → 101 → 102)"
+                  className="flex items-center gap-1 bg-slate-800 text-white px-3 py-2 rounded-xl font-bold text-sm disabled:opacity-50 hover:bg-slate-700 transition-colors"
                 >
-                  <ArrowRight className="w-5 h-5" />
+                  순서대로
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
             </div>

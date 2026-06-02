@@ -4,7 +4,7 @@ import { api } from "@shared/routes";
 import { addDays } from "date-fns";
 import { CIVICS_DATA } from "./civics_data";
 import { db } from "./db";
-import { asc, sql, eq, desc, gte, and } from "drizzle-orm";
+import { asc, sql, eq, desc, gte, lte, and } from "drizzle-orm";
 import { questions, userProgress } from "@shared/schema";
 
 // === 🔒 SECURITY: 비밀번호 설정 (원하는 번호로 변경 가능) ===
@@ -125,6 +125,13 @@ export function registerRoutes(app: Express): void {
           .select()
           .from(questions)
           .orderBy(sql`RANDOM()`);
+      } else if (mode === "reverse") {
+        // 역순 학습: startId부터 거꾸로 내려감 (예: 100 -> 99 -> 98 ...)
+        let query = db.select().from(questions);
+        if (startId) {
+          query = query.where(lte(questions.id, startId)) as any;
+        }
+        sessionQuestions = await query.orderBy(desc(questions.id));
       } else {
         let query = db.select().from(questions);
         if (startId) {
@@ -157,7 +164,7 @@ export function registerRoutes(app: Express): void {
         `[Review] User ${userId} - Q${questionId} (${mode || "linear"})`,
       );
 
-      if (mode === "random" || mode === "jump") {
+      if (mode === "random" || mode === "jump" || mode === "reverse") {
         return res.json({ success: true, skipped: true });
       }
 
