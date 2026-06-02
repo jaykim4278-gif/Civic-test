@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStudySession, useSubmitReview } from "@/hooks/use-study";
 import { Flashcard } from "@/components/Flashcard";
-import { Loader2, AlertTriangle, X } from "lucide-react";
+import { Loader2, AlertTriangle, X, ChevronLeft } from "lucide-react";
 import { api } from "@shared/routes";
 
 export default function StudySession() {
@@ -51,6 +51,14 @@ export default function StudySession() {
     }
   };
 
+  // 이전 카드로 되돌아가기 (평가 없이, 정순/역순 모두 "방금 본 카드"로 이동)
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      setIsFlipped(false);
+      setCurrentIndex((prev) => prev - 1);
+    }
+  };
+
   const handleQuitRequest = () => {
     setShowQuitConfirm(true);
   };
@@ -84,9 +92,20 @@ export default function StudySession() {
     <div className="min-h-screen bg-slate-50 flex flex-col relative">
       {/* Header - Fixed at top */}
       <div className="bg-white px-6 py-4 flex items-center justify-between shadow-sm z-20 sticky top-0">
-        <button onClick={handleQuitRequest} className="p-2 -ml-2 text-slate-400 hover:text-slate-600 transition-colors">
-          <X className="w-6 h-6" />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button onClick={handleQuitRequest} className="p-2 -ml-2 text-slate-400 hover:text-slate-600 transition-colors">
+            <X className="w-6 h-6" />
+          </button>
+          <button
+            onClick={handlePrevious}
+            disabled={currentIndex === 0}
+            title="이전 카드로 돌아가기"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            이전
+          </button>
+        </div>
         <div className="flex-1 mx-4 h-2 bg-slate-100 rounded-full overflow-hidden">
           <motion.div 
             className="h-full bg-emerald-500"
