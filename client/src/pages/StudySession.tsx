@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -21,14 +21,28 @@ export default function StudySession() {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  
+  const didInitRef = useRef(false);
+
   // 2. Custom Modal State
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
 
+  // mode/startId가 바뀌면 시작 위치를 다시 잡도록 플래그 초기화
   useEffect(() => {
-    setCurrentIndex(0);
-    setIsFlipped(false);
+    didInitRef.current = false;
   }, [mode, startId]);
+
+  // 카드 로드 후 startId에 해당하는 카드부터 시작 (최초 1회).
+  // 이후 백그라운드 refetch가 일어나도 현재 보던 위치를 유지한다.
+  useEffect(() => {
+    if (!didInitRef.current && questions && questions.length > 0) {
+      const idx = startId
+        ? questions.findIndex((q: any) => q.id === startId)
+        : 0;
+      setCurrentIndex(idx >= 0 ? idx : 0);
+      setIsFlipped(false);
+      didInitRef.current = true;
+    }
+  }, [questions, startId]);
 
   const currentQuestion = questions?.[currentIndex];
   // progress calculation

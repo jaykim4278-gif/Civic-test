@@ -4,7 +4,7 @@ import { api } from "@shared/routes";
 import { addDays } from "date-fns";
 import { CIVICS_DATA } from "./civics_data";
 import { db } from "./db";
-import { asc, sql, eq, desc, gte, lte, and } from "drizzle-orm";
+import { asc, sql, eq, desc, and } from "drizzle-orm";
 import { questions, userProgress } from "@shared/schema";
 
 // === 🔒 SECURITY: 비밀번호 설정 (원하는 번호로 변경 가능) ===
@@ -117,7 +117,9 @@ export function registerRoutes(app: Express): void {
         "no-store, no-cache, must-revalidate, proxy-revalidate",
       );
       const mode = req.query.mode as string | undefined;
-      const startId = parseInt(req.query.startId as string) || undefined;
+      // 전체 카드를 모드 방향대로 반환한다. 시작 위치(startId)는 클라이언트가
+      // currentIndex로 처리하므로, 학습 중 "이전" 버튼으로 시작점보다 앞쪽
+      // 카드까지 자유롭게 오갈 수 있다. (이전: startId부터 끝까지만 잘라서 보냄)
 
       let sessionQuestions;
       if (mode === "random") {
@@ -126,18 +128,17 @@ export function registerRoutes(app: Express): void {
           .from(questions)
           .orderBy(sql`RANDOM()`);
       } else if (mode === "reverse") {
-        // 역순 학습: startId부터 거꾸로 내려감 (예: 100 -> 99 -> 98 ...)
-        let query = db.select().from(questions);
-        if (startId) {
-          query = query.where(lte(questions.id, startId)) as any;
-        }
-        sessionQuestions = await query.orderBy(desc(questions.id));
+        // 역순: 100 -> 99 -> ... -> 1
+        sessionQuestions = await db
+          .select()
+          .from(questions)
+          .orderBy(desc(questions.id));
       } else {
-        let query = db.select().from(questions);
-        if (startId) {
-          query = query.where(gte(questions.id, startId)) as any;
-        }
-        sessionQuestions = await query.orderBy(asc(questions.id));
+        // 정순: 1 -> 2 -> ... -> 100
+        sessionQuestions = await db
+          .select()
+          .from(questions)
+          .orderBy(asc(questions.id));
       }
       const result = sessionQuestions.map((q) => ({
         ...q,
