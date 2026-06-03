@@ -13,6 +13,7 @@ import {
   Key,
   Headphones,
   BookMarked,
+  MessagesSquare,
 } from "lucide-react";
 import { Navigation } from "@/components/Navigation";
 import { useStudyStats } from "@/hooks/use-study";
@@ -322,6 +323,30 @@ export default function Home() {
           <h3 className="text-2xl font-bold text-slate-800 mb-6 px-2">
             Library
           </h3>
+
+          {/* 모의 면접 대화 — 메인 추천 카드 */}
+          <Link href="/n400-interview">
+            <motion.div
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              className="mb-4 bg-gradient-to-br from-indigo-500 to-blue-600 text-white p-6 rounded-3xl shadow-xl cursor-pointer flex items-center gap-4 relative overflow-hidden"
+            >
+              <span className="absolute top-4 right-4 text-[10px] font-extrabold bg-white/20 px-2 py-1 rounded-full uppercase tracking-wider">
+                New
+              </span>
+              <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                <MessagesSquare className="w-7 h-7" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-xl font-bold">N-400 모의 면접 대화</h4>
+                <p className="text-indigo-100 text-sm mt-0.5">
+                  영어질문 → 한글 → 모범답변 · 음성으로 듣기 🔊
+                </p>
+              </div>
+              <ArrowRight className="w-6 h-6 text-white/70 shrink-0" />
+            </motion.div>
+          </Link>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Link href="/questions">
               <div className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm hover:border-blue-100 cursor-pointer transition-colors flex items-center gap-4">
