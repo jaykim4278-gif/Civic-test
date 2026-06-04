@@ -67,6 +67,7 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         answer: "No",
         words: [
           { match: "registered to vote", word: "register to vote", ko: "투표 등록", explain: "To sign up so you can vote." },
+          { match: "voted", word: "voted", ko: "투표함", explain: "Chose in an election." },
         ],
       },
       {
@@ -75,6 +76,7 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         ko: "현재 미국에 체납된 연방·주·지방 세금이 있습니까?",
         answer: "No",
         words: [
+          { match: "owe", word: "owe", ko: "빚지다(미납)", explain: "To need to pay money you have not paid." },
           { match: "overdue", word: "overdue taxes", ko: "체납 세금", explain: "Taxes I did not pay on time." },
         ],
       },
@@ -86,6 +88,7 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         words: [
           { match: "lawful permanent resident", word: "permanent resident", ko: "영주권자", explain: "A green card holder." },
           { match: "nonresident alien", word: "nonresident alien", ko: "비거주 외국인", explain: "A person who lives outside the U.S. for taxes." },
+          { match: "file a tax return", word: "file a tax return", ko: "세금 신고서 제출", explain: "To send your tax form to the government." },
         ],
       },
     ],
@@ -365,6 +368,7 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
           { match: "detained", word: "detained", ko: "구금된", explain: "When you are held and not free to leave." },
           { match: "charged", word: "charged", ko: "기소된", explain: "When you are officially accused of a crime." },
           { word: "Habitual Drunkard", ko: "상습 음주가", explain: "Someone who drinks too much alcohol every day." },
+          { word: "convicted", ko: "유죄 판결", explain: "Found guilty by a court." },
         ],
       },
       {
@@ -409,7 +413,10 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         en: "Have you EVER married someone in order to obtain an immigration benefit?",
         ko: "이민 혜택을 얻기 위해 누군가와 결혼한 적이 있습니까?",
         answer: "No",
-        words: [],
+        words: [
+          { match: "married", word: "married", ko: "결혼한", explain: "To have a husband or wife." },
+          { match: "immigration benefit", word: "immigration benefit", ko: "이민 혜택", explain: "A visa, green card, or citizenship." },
+        ],
       },
       {
         id: "17.e",
@@ -452,6 +459,7 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         ko: "미국 정부 관리에게 허위·사기·오해를 부르는 정보나 서류를 준 적이 있습니까?",
         answer: "No",
         words: [
+          { match: "false", word: "false", ko: "사실이 아닌", explain: "Not true." },
           { match: "fraudulent", word: "fraud", ko: "사기", explain: "Lying to get something you want." },
           { match: "misleading", word: "misleading", ko: "오해를 부르는", explain: "Information that makes someone believe a wrong thing." },
         ],
