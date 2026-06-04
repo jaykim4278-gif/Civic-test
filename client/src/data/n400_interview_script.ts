@@ -9,6 +9,7 @@
 //   tip  : (선택) 한글 팁/주의
 //   alt  : (선택) 상황별 다른 답변 안내
 //   personal : (선택) 본인 정보로 바꿔야 하는 답변 표시
+//   group : (선택) 이 줄부터 시작하는 소그룹 라벨 (장면 안 구분선)
 
 export interface InterviewLine {
   q_en: string;
@@ -18,6 +19,7 @@ export interface InterviewLine {
   tip?: string;
   alt?: string;
   personal?: boolean;
+  group?: string;
 }
 
 export interface InterviewScene {
@@ -96,6 +98,13 @@ export const N400_INTERVIEW_SCENES: InterviewScene[] = [
     title: "진실 선서 & 시민권 사유",
     subtitle: "Truth Oath & Why Citizenship",
     lines: [
+      {
+        q_en: "Do you swear or affirm that the statements you will give today will be the truth, the whole truth, and nothing but the truth?",
+        q_ko: "오늘 진술하실 내용이 진실이며, 전부 진실이고, 오직 진실뿐임을 선서 또는 확약합니까?",
+        a_en: "Yes, I do.",
+        a_ko: "네, 그렇습니다.",
+        tip: "오른손을 들고 또렷하게 \"Yes, I do.\" — 심사관이 쓰는 정식 선서문입니다.",
+      },
       {
         q_en: "Please raise your right hand. Do you promise to tell the truth?",
         q_ko: "오른손을 들어주세요. 진실만 말할 것을 약속합니까?",
@@ -327,44 +336,98 @@ export const N400_INTERVIEW_SCENES: InterviewScene[] = [
     id: "7",
     emoji: "🍽️",
     title: "Part 7 — 직업",
-    subtitle: "Employment (Hanz Diner & Frank's Grill)",
+    subtitle: "Employment (JYJ & Abundant)",
     lines: [
       {
-        q_en: "Who do you work for? What do you do for work?",
-        q_ko: "어디서 일하나요? 무슨 일을 하나요?",
-        a_en: "I work for myself. I'm self-employed. I co-own two restaurants.",
-        a_ko: "저는 제 사업을 합니다. 자영업자입니다. 식당 두 곳을 공동 소유하고 있습니다.",
+        q_en: "Are you currently employed?",
+        q_ko: "현재 일을 하고 있나요?",
+        a_en: "Yes, I'm self-employed.",
+        a_ko: "네, 저는 자영업자입니다.",
+        group: "기본 — 직업 · 사업체",
       },
       {
-        q_en: "What is the name of your business?",
-        q_ko: "사업체 이름이 뭔가요?",
-        a_en: "I co-own two restaurants, Hanz Diner and Frank's Grill.",
-        a_ko: "저는 식당 두 곳, Hanz Diner와 Frank's Grill을 공동 소유합니다.",
+        q_en: "Where do you work?",
+        q_ko: "어디서 일하나요?",
+        a_en: "I work at my two restaurants, JYJ and Abundant.",
+        a_ko: "제 식당 두 곳, JYJ와 Abundant에서 일합니다.",
+      },
+      {
+        q_en: "What is your role?",
+        q_ko: "어떤 역할(직책)인가요?",
+        a_en: "I'm the owner, and I run the restaurants.",
+        a_ko: "저는 소유주이고, 식당을 운영합니다.",
+      },
+      {
+        q_en: "Who do you work for?",
+        q_ko: "누구를 위해 일하나요? (고용주가 누구인가요?)",
+        a_en: "I work for myself.",
+        a_ko: "저 자신을 위해 일합니다. (제 사업입니다.)",
+      },
+      {
+        q_en: "What kind of business is it?",
+        q_ko: "어떤 종류의 사업인가요?",
+        a_en: "Both are restaurants.",
+        a_ko: "둘 다 식당입니다.",
+      },
+      {
+        q_en: "What are the names of your companies?",
+        q_ko: "회사 이름이 무엇인가요?",
+        a_en: "JYJ and Abundant.",
+        a_ko: "JYJ와 Abundant입니다.",
       },
       {
         q_en: "Who owns them?",
         q_ko: "누가 소유하나요?",
-        a_en: "Hanz Diner is co-owned with my wife. Frank's Grill is co-owned with my brother.",
-        a_ko: "Hanz Diner는 아내와 공동 소유이고, Frank's Grill은 형과 공동 소유입니다.",
+        a_en: "I co-own JYJ fifty-fifty with my wife, and Abundant fifty-fifty with my brother.",
+        a_ko: "JYJ는 아내와 50대 50으로, Abundant는 형과 50대 50으로 공동 소유합니다.",
       },
       {
-        q_en: "How long have you owned them?",
-        q_ko: "소유한 지 얼마나 됐나요?",
-        a_en: "Since 2020. About five years.",
-        a_ko: "2020년부터입니다. 약 5년 됐습니다.",
+        q_en: "How long have you worked at your businesses?",
+        q_ko: "사업체에서 일한 지 얼마나 됐나요?",
+        a_en: "I've worked at JYJ since 2020, and at Abundant since 2023.",
+        a_ko: "JYJ에서는 2020년부터, Abundant에서는 2023년부터 일했습니다.",
+        group: "근무 기간 · 소유 시점 (N-400 폼 정합)",
+        tip: "N-400 폼 날짜와 동일하게: JYJ 05/24/2020, Abundant 04/02/2023.",
+      },
+      {
+        q_en: "When did you become an owner?",
+        q_ko: "언제 소유주가 되었나요?",
+        a_en: "I became a co-owner of JYJ in 2025, when we converted to an S-corporation. I've co-owned Abundant since it started in 2023.",
+        a_ko: "JYJ는 2025년 S-corporation으로 전환하면서 공동 소유주가 되었습니다. Abundant는 2023년 시작 때부터 공동 소유했습니다.",
+        tip: "'근무 시작(폼 날짜)'과 '소유 시작(JYJ 2025 / Abundant 2023)'을 구분하세요.",
       },
       {
         q_en: "What did you do before 2020?",
         q_ko: "2020년 전에는 무슨 일을 했나요?",
-        a_en: "Before 2020, I focused on raising our child and helped my wife with the restaurant. After 2020, I focused more on running the business.",
+        a_en: "Before 2020, I focused on raising our child and helped my wife with the restaurant. After 2020, I've focused more on running the business.",
         a_ko: "2020년 전에는 아이를 키우는 데 집중했고 아내의 식당 일을 도왔습니다. 2020년 이후로는 사업 운영에 더 집중했습니다.",
+        group: "2020년 이전 (물으면)",
       },
       {
         q_en: "Did you have your own income before 2020?",
         q_ko: "2020년 전에 본인 수입이 있었나요?",
         a_en: "No, I was a homemaker at that time.",
         a_ko: "아니요, 그때는 가사를 돌봤습니다.",
-        tip: "수입이 없었던 것은 전혀 문제가 아닙니다.",
+        tip: "JYJ 근무 시작(2020.5)과 정확히 일치. 수입이 없던 것은 전혀 문제가 아니며, 부부 합산(MFJ) 신고와도 일관됩니다.",
+      },
+      {
+        q_en: "What are the restaurants called?",
+        q_ko: "식당 상호(브랜드)는 무엇인가요?",
+        a_en: "JYJ runs Hanz Diner, and Abundant runs a Frank's Grill location.",
+        a_ko: "JYJ는 Hanz Diner를 운영하고, Abundant는 Frank's Grill 매장을 운영합니다.",
+        group: "가게명 · E-2 · S-corp (물으면만)",
+      },
+      {
+        q_en: "Your E-2 was for a Frank's Grill. What happened to it?",
+        q_ko: "E-2 비자는 Frank's Grill 관련이었는데, 그건 어떻게 됐나요?",
+        a_en: "That location didn't do well, so we rebranded it as Hanz Diner under the same company, JYJ, and we still run it. Later, my brother bought a different Frank's Grill location, and we formed Abundant to co-own it.",
+        a_ko: "그 매장이 잘 안 돼서, 같은 회사 JYJ 아래 Hanz Diner로 브랜드를 바꿔 지금도 운영합니다. 이후 형이 다른 Frank's Grill 매장을 인수했고, 그것을 공동 소유하려고 Abundant를 설립했습니다.",
+      },
+      {
+        q_en: "Why did you change JYJ to an S-corporation last year?",
+        q_ko: "작년에 왜 JYJ를 S-corporation으로 바꿨나요?",
+        a_en: "It was a tax decision.",
+        a_ko: "세금 관련 결정이었습니다.",
       },
     ],
   },

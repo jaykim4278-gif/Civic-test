@@ -453,14 +453,24 @@ function SceneCard({
 
           <div className="space-y-4">
             {filteredLines.map(({ line, i }) => (
-              <ExchangeBubbles
-                key={i}
-                line={line}
-                sceneId={scene.id}
-                index={i}
-                speak={speak}
-                speakingKey={speakingKey}
-              />
+              <div key={i} className="space-y-4">
+                {line.group && (
+                  <div className="flex items-center gap-3 pt-2">
+                    <div className="flex-1 h-px bg-slate-200" />
+                    <span className="text-[11px] font-extrabold text-slate-400 tracking-wide text-center">
+                      {line.group}
+                    </span>
+                    <div className="flex-1 h-px bg-slate-200" />
+                  </div>
+                )}
+                <ExchangeBubbles
+                  line={line}
+                  sceneId={scene.id}
+                  index={i}
+                  speak={speak}
+                  speakingKey={speakingKey}
+                />
+              </div>
             ))}
           </div>
         </motion.div>
