@@ -714,26 +714,75 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
     id: "oath",
     emoji: "✍️",
     title: "충성 선서문",
-    subtitle: "Oath of Allegiance (Part 16)",
+    subtitle: "Oath of Allegiance (Part 16) · 전체 7개 조항",
     cards: [
       {
         id: "Oath 1",
-        en: "I absolutely and entirely renounce and abjure all allegiance and fidelity to any foreign prince, potentate, state, or sovereignty, of whom or which I have heretofore been a subject or citizen.",
-        ko: "저는 지금까지 신민 또는 시민이었던 어떤 외국의 군주·통치자·국가·주권에 대한 모든 충성과 충실을 절대적이고 완전히 포기하고 거부합니다.",
+        en: "I hereby declare on oath, that I absolutely and entirely renounce and abjure all allegiance and fidelity to any foreign prince, potentate, state, or sovereignty, of whom or which I have heretofore been a subject or citizen;",
+        ko: "저는 이로써 선서로 선언합니다 — 지금까지 제가 신민 또는 시민이었던 어떤 외국의 군주·통치자·국가·주권에 대한 모든 충성과 충실을 절대적이고 완전히 포기하고 거부한다고.",
         words: [
+          { match: "declare on oath", word: "declare on oath", ko: "선서로 선언하다", explain: "To say something officially as a serious promise." },
           { match: "renounce", word: "renounce", ko: "포기하다", explain: "To give up something completely." },
           { match: "abjure", word: "abjure", ko: "거부하다", explain: "To formally reject or give up." },
           { match: "allegiance", word: "allegiance", ko: "충성", explain: "Loyalty to a country." },
+          { match: "fidelity", word: "fidelity", ko: "충실 · 신의", explain: "Being loyal and faithful." },
           { match: "potentate", word: "potentate", ko: "통치자", explain: "A powerful ruler of a country." },
           { match: "sovereignty", word: "sovereignty", ko: "주권", explain: "The power that rules a country." },
+          { match: "heretofore", word: "heretofore", ko: "지금까지", explain: "Until now." },
+          { match: "subject", word: "subject", ko: "신민(국민)", explain: "A person ruled by a king or country." },
         ],
       },
       {
         id: "Oath 2",
-        en: "I take this obligation freely, without any mental reservation or purpose of evasion; so help me God.",
+        en: "that I will support and defend the Constitution and laws of the United States of America against all enemies, foreign, and domestic;",
+        ko: "미국의 헌법과 법률을 외국과 국내의 모든 적에 맞서 지지하고 수호하겠습니다.",
+        words: [
+          { match: "Constitution", word: "Constitution", ko: "헌법", explain: "The supreme law of the United States." },
+          { match: "enemies", word: "enemies", ko: "적", explain: "People who want to harm the country." },
+          { match: "domestic", word: "domestic", ko: "국내의", explain: "Inside the country." },
+        ],
+      },
+      {
+        id: "Oath 3",
+        en: "that I will bear true faith and allegiance to the same;",
+        ko: "같은 대상(미국 헌법과 법률)에 진정한 신의와 충성을 바치겠습니다.",
+        words: [
+          { match: "true faith and allegiance", word: "true faith and allegiance", ko: "진정한 신의와 충성", explain: "Real loyalty and belief in the country." },
+        ],
+      },
+      {
+        id: "Oath 4",
+        en: "that I will bear arms on behalf of the United States when required by the law;",
+        ko: "법이 요구하면 미국을 위해 무기를 들겠습니다.",
+        words: [
+          { match: "bear arms", word: "bear arms", ko: "무기를 들다", explain: "To use a weapon to defend the country." },
+        ],
+      },
+      {
+        id: "Oath 5",
+        en: "that I will perform noncombatant service in the armed forces of the United States when required by the law;",
+        ko: "법이 요구하면 미군에서 비전투 복무를 하겠습니다.",
+        words: [
+          { match: "noncombatant service", word: "noncombatant service", ko: "비전투 복무", explain: "Military work without fighting, like nursing or cooking." },
+        ],
+      },
+      {
+        id: "Oath 6",
+        en: "that I will perform work of national importance under civilian direction when required by the law; and",
+        ko: "법이 요구하면 민간 지휘 하에 국가적으로 중요한 일을 하겠습니다.",
+        words: [
+          { match: "work of national importance", word: "work of national importance", ko: "국가적 중요 업무", explain: "Important non-military work for the country." },
+          { match: "civilian", word: "civilian", ko: "민간(인)", explain: "A person who is not in the military." },
+        ],
+      },
+      {
+        id: "Oath 7",
+        en: "that I take this obligation freely, without any mental reservation or purpose of evasion; so help me God.",
         ko: "저는 어떤 마음의 유보나 회피 목적 없이 이 의무를 자유롭게 받아들입니다. 신이여 도우소서.",
         words: [
-          { match: "mental reservation", word: "mental reservation", ko: "마음의 유보", explain: "A secret doubt." },
+          { match: "obligation", word: "obligation", ko: "의무", explain: "A duty you must do." },
+          { match: "mental reservation", word: "mental reservation", ko: "마음의 유보", explain: "A secret doubt or hidden 'no'." },
+          { match: "evasion", word: "evasion", ko: "회피", explain: "Avoiding or escaping a duty." },
         ],
       },
     ],
@@ -751,4 +800,4 @@ export const TOTAL_SENTENCE_WORDS = N400_SENTENCE_VOCAB.reduce(
 );
 
 export const SENTENCE_VOCAB_TIP =
-  "Form N-400(Edition 01/20/25) Part 9의 모든 질문(1~37번)을 번호 순서대로, 원문 그대로 담았습니다. 노란색 단어가 실제 문장 안 어디에 들어있는지 보면서 문장과 단어를 한 번에 익히고, 스피커로 전체 문장을 들어보세요.";
+  "Form N-400(Edition 01/20/25) Part 9의 모든 질문(1~37번)과 Part 16 충성 선서 전체를 원문 그대로 담았습니다. 노란색 단어가 실제 문장 안 어디에 들어있는지 보면서 문장과 단어를 한 번에 익히고, 스피커로 전체 문장을 들어보세요.";
