@@ -13,6 +13,7 @@ import VocabularyList from "@/pages/VocabularyList";
 import N400Practice from "@/pages/N400Practice";
 import N400Vocabulary from "@/pages/N400Vocabulary";
 import N400Interview from "@/pages/N400Interview";
+import N400SentenceVocab from "@/pages/N400SentenceVocab";
 
 function Router() {
   return (
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/n400" component={N400Practice} />
       <Route path="/n400-vocab" component={N400Vocabulary} />
       <Route path="/n400-interview" component={N400Interview} />
+      <Route path="/n400-sentence-vocab" component={N400SentenceVocab} />
 
       {/* Fallback to 404 */}
       <Route component={NotFound} />

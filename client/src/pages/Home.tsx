@@ -14,6 +14,7 @@ import {
   Headphones,
   BookMarked,
   MessagesSquare,
+  Highlighter,
 } from "lucide-react";
 import { Navigation } from "@/components/Navigation";
 import { useStudyStats } from "@/hooks/use-study";
@@ -405,6 +406,22 @@ export default function Home() {
                   </h4>
                   <p className="text-slate-500 text-sm">
                     Interview vocabulary · 발음 + 뜻
+                  </p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-slate-300" />
+              </div>
+            </Link>
+            <Link href="/n400-sentence-vocab">
+              <div className="bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm hover:border-amber-200 cursor-pointer transition-colors flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center">
+                  <Highlighter className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-lg font-bold text-slate-800">
+                    문장 속 단어
+                  </h4>
+                  <p className="text-slate-500 text-sm">
+                    Part 9 문장 + 단어 한번에
                   </p>
                 </div>
                 <ArrowRight className="w-5 h-5 text-slate-300" />
