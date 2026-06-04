@@ -254,6 +254,7 @@ function SentenceCard({
   speakingKey: string | null;
 }) {
   const sentKey = `${sectionId}-${card.id}-sent`;
+  const speakText = card.stem ? `${card.stem} ${card.en}` : card.en;
 
   return (
     <div className="bg-white rounded-2xl border-2 border-slate-100 shadow-sm overflow-hidden">
@@ -266,7 +267,7 @@ function SentenceCard({
           <div className="flex items-center gap-2">
             {card.answer && <AnswerBadge answer={card.answer} />}
             <SpeakerButton
-              text={card.en}
+              text={speakText}
               itemKey={sentKey}
               speak={speak}
               speakingKey={speakingKey}
@@ -276,6 +277,11 @@ function SentenceCard({
           </div>
         </div>
 
+        {card.stem && (
+          <p className="text-xs text-slate-500 mb-1.5 leading-relaxed">
+            {card.stem}
+          </p>
+        )}
         <p className="text-base md:text-lg font-semibold text-slate-800 leading-relaxed whitespace-pre-line">
           {renderHighlighted(card.en, card.words)}
         </p>
@@ -285,7 +291,8 @@ function SentenceCard({
       </div>
 
       {/* Word meanings (numbered to match highlights) */}
-      <div className="bg-amber-50/50 border-t border-amber-100 p-3 md:p-4 space-y-2">
+      {card.words.length > 0 && (
+        <div className="bg-amber-50/50 border-t border-amber-100 p-3 md:p-4 space-y-2">
         {card.words.map((w, idx) => {
           const wKey = `${sectionId}-${card.id}-w${idx}`;
           return (
@@ -318,7 +325,8 @@ function SentenceCard({
             </div>
           );
         })}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -412,7 +420,9 @@ function Section({
 export default function N400SentenceVocab() {
   const { speak, stop, speakingKey, slow, setSlow } = useSpeak();
   const [search, setSearch] = useState("");
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set(["A"]));
+  const [openSections, setOpenSections] = useState<Set<string>>(
+    new Set(["1-4"]),
+  );
 
   const toggleSection = (id: string) => {
     setOpenSections((prev) => {
