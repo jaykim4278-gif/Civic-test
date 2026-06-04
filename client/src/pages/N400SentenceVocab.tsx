@@ -276,7 +276,7 @@ function SentenceCard({
           </div>
         </div>
 
-        <p className="text-base md:text-lg font-semibold text-slate-800 leading-relaxed">
+        <p className="text-base md:text-lg font-semibold text-slate-800 leading-relaxed whitespace-pre-line">
           {renderHighlighted(card.en, card.words)}
         </p>
         <p className="text-sm text-slate-500 mt-2 leading-relaxed border-l-2 border-slate-100 pl-3">
