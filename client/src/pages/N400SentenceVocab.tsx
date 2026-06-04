@@ -176,32 +176,35 @@ function SpeakerButton({
   );
 }
 
-// ── Highlight the vocab words inside the sentence (with index numbers) ──────
-function renderHighlighted(
-  en: string,
-  words: SentenceVocabWord[],
-): ReactNode[] {
+// ── Highlight vocab words inside the sentence (appearance-order numbers) ─────
+// Returns rendered nodes + a map (word-array-index -> highlight number).
+// Words whose `match` isn't found stay unnumbered (shown as "관련어" in the panel).
+function highlightInfo(en: string, words: SentenceVocabWord[]) {
   const lower = en.toLowerCase();
-  const ranges = words
+  const found = words
     .map((w, idx) => {
       const m = (w.match || w.word).toLowerCase();
       const start = lower.indexOf(m);
-      return start === -1
-        ? null
-        : { start, end: start + m.length, num: idx + 1 };
+      return start === -1 ? null : { start, end: start + m.length, idx };
     })
-    .filter((r): r is { start: number; end: number; num: number } => r !== null)
+    .filter((r): r is { start: number; end: number; idx: number } => r !== null)
     .sort((a, b) => a.start - b.start);
 
   // drop overlaps (keep the earlier match)
-  const clean: { start: number; end: number; num: number }[] = [];
+  const clean: { start: number; end: number; idx: number }[] = [];
   let lastEnd = -1;
-  for (const r of ranges) {
+  for (const r of found) {
     if (r.start >= lastEnd) {
       clean.push(r);
       lastEnd = r.end;
     }
   }
+
+  // appearance-order number for each matched word index
+  const numByIndex: Record<number, number> = {};
+  clean.forEach((r, i) => {
+    numByIndex[r.idx] = i + 1;
+  });
 
   const nodes: ReactNode[] = [];
   let cursor = 0;
@@ -214,14 +217,15 @@ function renderHighlighted(
       >
         {en.slice(r.start, r.end)}
         <sup className="text-[9px] font-black text-amber-700 ml-0.5 align-super">
-          {r.num}
+          {i + 1}
         </sup>
       </mark>,
     );
     cursor = r.end;
   });
   if (cursor < en.length) nodes.push(en.slice(cursor));
-  return nodes;
+
+  return { nodes, numByIndex };
 }
 
 function AnswerBadge({ answer }: { answer: string }) {
@@ -255,6 +259,7 @@ function SentenceCard({
 }) {
   const sentKey = `${sectionId}-${card.id}-sent`;
   const speakText = card.stem ? `${card.stem} ${card.en}` : card.en;
+  const highlighted = highlightInfo(card.en, card.words);
 
   return (
     <div className="bg-white rounded-2xl border-2 border-slate-100 shadow-sm overflow-hidden">
@@ -283,7 +288,7 @@ function SentenceCard({
           </p>
         )}
         <p className="text-base md:text-lg font-semibold text-slate-800 leading-relaxed whitespace-pre-line">
-          {renderHighlighted(card.en, card.words)}
+          {highlighted.nodes}
         </p>
         <p className="text-sm text-slate-500 mt-2 leading-relaxed border-l-2 border-slate-100 pl-3">
           {card.ko}
@@ -295,13 +300,21 @@ function SentenceCard({
         <div className="bg-amber-50/50 border-t border-amber-100 p-3 md:p-4 space-y-2">
         {card.words.map((w, idx) => {
           const wKey = `${sectionId}-${card.id}-w${idx}`;
+          const num = highlighted.numByIndex[idx];
           return (
             <div
               key={idx}
               className="flex items-start gap-2.5 bg-white rounded-xl border border-amber-100 p-2.5"
             >
-              <span className="w-5 h-5 shrink-0 bg-amber-400 text-white rounded-full flex items-center justify-center text-[10px] font-black mt-0.5">
-                {idx + 1}
+              <span
+                className={cn(
+                  "w-5 h-5 shrink-0 rounded-full flex items-center justify-center text-[10px] font-black mt-0.5",
+                  num
+                    ? "bg-amber-400 text-white"
+                    : "bg-slate-200 text-slate-500",
+                )}
+              >
+                {num ?? "•"}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-2 flex-wrap">
@@ -309,6 +322,11 @@ function SentenceCard({
                   <span className="text-sm font-bold text-amber-600">
                     {w.ko}
                   </span>
+                  {!num && (
+                    <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                      관련어
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-slate-600 italic mt-0.5">
                   "{w.explain}"

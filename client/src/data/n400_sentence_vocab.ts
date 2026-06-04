@@ -101,7 +101,20 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         en: "Have you EVER been a member of, involved in, or in any way associated with any Communist or totalitarian party anywhere in the world?",
         ko: "전 세계 어디서든 공산당이나 전체주의 정당에 소속·관여·연관된 적이 있습니까?",
         answer: "No",
-        words: [W.totalitarian],
+        words: [
+          {
+            match: "Communist",
+            word: "Communist Party",
+            ko: "공산당",
+            explain: "A political system with no freedom, like North Korea or Cuba.",
+          },
+          {
+            match: "totalitarian",
+            word: "Totalitarian Party",
+            ko: "전체주의 정당",
+            explain: "A government with total control, where people have no power.",
+          },
+        ],
       },
       {
         id: "5.b",
@@ -110,9 +123,9 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         answer: "No",
         words: [
           { match: "advocated", word: "advocate", ko: "옹호하다", explain: "To publicly support an idea." },
-          W.totalitarian,
+          { match: "totalitarian", word: "totalitarian", ko: "전체주의의", explain: "A government with total control, where people have no power." },
           { match: "dictatorship", word: "dictatorship", ko: "독재", explain: "Rule by one person with total power." },
-          { match: "overthrow", word: "overthrow", ko: "전복", explain: "To remove a government by force." },
+          { match: "overthrow", word: "overthrow", ko: "(정부를) 전복시키다", explain: "To remove a government by using force or violence." },
           { match: "Sabotage", ...W.sabotage },
         ],
       },
@@ -143,6 +156,7 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         words: [
           { match: "assassination", word: "assassination", ko: "암살", explain: "Murder of an important person." },
           { match: "sabotage", ...W.sabotage },
+          { word: "Terrorist Organization", ko: "테러 단체", explain: "A group that uses fear and violence against innocent people." },
         ],
       },
       {
@@ -171,7 +185,7 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         ko: "(다음에 가담한 적이 있습니까:) 고문?",
         answer: "No",
         words: [
-          { match: "Torture", word: "torture", ko: "고문", explain: "Causing severe pain to force someone." },
+          { match: "Torture", word: "torture", ko: "고문", explain: "Hurting someone's body badly on purpose." },
         ],
       },
       {
@@ -181,7 +195,7 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         ko: "(다음에 가담한 적이 있습니까:) 집단학살?",
         answer: "No",
         words: [
-          { match: "Genocide", word: "genocide", ko: "집단학살", explain: "Killing a large group of people on purpose." },
+          { match: "Genocide", word: "genocide", ko: "집단학살", explain: "Killing a whole group of people because of race or religion." },
         ],
       },
       {
@@ -248,7 +262,15 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         en: "Have you EVER served in, been a member of, assisted (helped), or participated in any armed group (a group that carries weapons), for example: paramilitary unit (a group of people who act like a military group but are not part of the official military), self-defense unit, vigilante unit, rebel group, or guerrilla group?",
         ko: "무기를 소지한 무장단체에 복무·소속·참여한 적이 있습니까? 예: 준군사 부대, 자위대, 자경단, 반군, 게릴라 단체.",
         answer: "No",
-        words: [W.paramilitary],
+        words: [
+          W.paramilitary,
+          {
+            match: "guerrilla",
+            word: "Guerrilla / Insurgent",
+            ko: "게릴라 / 반군 단체",
+            explain: "A group of people who use weapons to fight the government.",
+          },
+        ],
       },
       {
         id: "9",
@@ -262,7 +284,9 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         en: "Were you EVER a part of any group, or did you EVER help any group, unit, or organization that used a weapon against any person, or threatened to do so?",
         ko: "사람에게 무기를 사용했거나 사용을 위협한 단체에 속하거나 도운 적이 있습니까?",
         answer: "No",
-        words: [],
+        words: [
+          { match: "weapon", word: "Weapon", ko: "무기", explain: "Something used to fight, like a gun, knife, or bomb." },
+        ],
       },
       {
         id: "10.b",
@@ -326,7 +350,9 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         en: "Have you EVER committed, agreed to commit, asked someone else to commit, helped commit, or tried to commit a crime or offense for which you were NOT arrested?",
         ko: "체포되지 않은 범죄·위법을 저지르거나, 저지르기로 합의·요청·방조·시도한 적이 있습니까?",
         answer: "No",
-        words: [],
+        words: [
+          { match: "crime or offense", word: "Crime / Offense", ko: "범죄 / 위반 행위", explain: "An action that breaks the law." },
+        ],
       },
       {
         id: "15.b",
@@ -334,10 +360,11 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         ko: "어떤 이유로든 사법·군·이민 당국에 의해 체포·소환·구금·억류된 적이 있거나, 범죄·위법으로 기소된 적이 있습니까?",
         answer: "No",
         words: [
-          { match: "arrested", word: "arrested", ko: "체포된", explain: "When police take you into custody." },
+          { match: "arrested", word: "arrested", ko: "체포된", explain: "Taken to jail by the police." },
           { match: "cited", word: "cited", ko: "소환된(티켓)", explain: "When you are given a ticket or official notice." },
           { match: "detained", word: "detained", ko: "구금된", explain: "When you are held and not free to leave." },
           { match: "charged", word: "charged", ko: "기소된", explain: "When you are officially accused of a crime." },
+          { word: "Habitual Drunkard", ko: "상습 음주가", explain: "Someone who drinks too much alcohol every day." },
         ],
       },
       {
@@ -366,7 +393,7 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         ko: "미국 주·연방 또는 외국의 법령을 위반하여 규제 약물·불법 마약·마약 도구를 제조·재배·생산·유통·판매하거나 밀수(거래)한 적이 있습니까?",
         answer: "No",
         words: [
-          { match: "smuggled", word: "smuggle", ko: "밀수·밀거래", explain: "To move people or goods secretly and illegally." },
+          { match: "smuggled", word: "smuggle", ko: "밀수 / 밀입국시키다", explain: "To bring items or people into the country illegally." },
           { match: "controlled substances", word: "controlled substance", ko: "규제 약물", explain: "Illegal drugs." },
         ],
       },
@@ -397,7 +424,7 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         ko: "불법 도박을 하거나 불법 도박으로 수입을 받은 적이 있습니까?",
         answer: "No",
         words: [
-          { match: "gambled", word: "gamble", ko: "도박하다", explain: "To play games for money." },
+          { match: "illegal gambling", word: "Illegal Gambling", ko: "불법 도박", explain: "Playing games for money against the law." },
         ],
       },
       {
@@ -434,7 +461,9 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         en: "Have you EVER lied to any U.S. Government officials to gain entry or admission into the United States or to gain immigration benefits while in the United States?",
         ko: "미국 입국·입장을 얻거나 미국 내에서 이민 혜택을 얻기 위해 미국 정부 관리에게 거짓말한 적이 있습니까?",
         answer: "No",
-        words: [],
+        words: [
+          { match: "lied", word: "Lie / Misrepresentation", ko: "거짓말 / 허위 진술", explain: "Saying something that is not true to get immigration benefits." },
+        ],
       },
     ],
   },
@@ -617,7 +646,7 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         ko: "미국에 대한 충성 선서 전문을 이해합니까? (Part 16. 충성 선서 참조)",
         answer: "Yes",
         words: [
-          { match: "Oath of Allegiance", word: "Oath of Allegiance", ko: "충성 선서", explain: "A promise to be loyal to the United States." },
+          { match: "Oath of Allegiance", word: "Oath of Allegiance", ko: "충성 선서", explain: "A solemn promise to be loyal to the United States." },
         ],
       },
       {
@@ -644,7 +673,7 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         ko: "법이 요구하면 미국을 위해 무기를 들(휴대할) 의향이 있습니까?",
         answer: "Yes",
         words: [
-          { match: "bear arms", word: "bear arms", ko: "무기를 들다", explain: "To use a weapon to defend the country." },
+          { match: "bear arms", word: "bear arms", ko: "무기를 휴대하다 (전투 참여)", explain: "To own or use a gun to fight in the U.S. military." },
         ],
       },
       {
@@ -653,7 +682,7 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         ko: "법이 요구하면 미군에서 비전투 복무(전쟁에서 싸우지 않는 일)를 할 의향이 있습니까?",
         answer: "Yes",
         words: [
-          { match: "noncombatant", word: "noncombatant service", ko: "비전투 복무", explain: "Military work without fighting." },
+          { match: "noncombatant", word: "noncombatant services", ko: "비전투원 복무", explain: "Work in the military without using weapons, like nursing or cooking." },
         ],
       },
       {
@@ -662,6 +691,12 @@ export const N400_SENTENCE_VOCAB: SentenceVocabSection[] = [
         ko: "법이 요구하면 민간 지휘 하에 국가적으로 중요한 일(정부가 중요하다고 하는 비군사 업무)을 할 의향이 있습니까?",
         answer: "Yes",
         words: [
+          {
+            match: "work of national importance",
+            word: "Work of national importance",
+            ko: "국가적 중요 업무",
+            explain: "Helping the country under civilian direction during a national crisis.",
+          },
           { match: "civilian", word: "civilian", ko: "민간(인)", explain: "A person who is not in the military." },
         ],
       },
