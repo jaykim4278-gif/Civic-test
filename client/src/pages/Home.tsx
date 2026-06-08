@@ -15,6 +15,7 @@ import {
   BookMarked,
   MessagesSquare,
   Highlighter,
+  Ear,
 } from "lucide-react";
 import { Navigation } from "@/components/Navigation";
 import { useStudyStats } from "@/hooks/use-study";
@@ -324,6 +325,29 @@ export default function Home() {
           <h3 className="text-2xl font-bold text-slate-800 mb-6 px-2">
             Library
           </h3>
+
+          {/* Part 9 재진술 연습 — 핵심 추천 카드 */}
+          <Link href="/n400-restate">
+            <motion.div
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              className="mb-4 bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white p-6 rounded-3xl shadow-xl cursor-pointer flex items-center gap-4 relative overflow-hidden"
+            >
+              <span className="absolute top-4 right-4 text-[10px] font-extrabold bg-white/20 px-2 py-1 rounded-full uppercase tracking-wider">
+                New
+              </span>
+              <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                <Ear className="w-7 h-7" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-xl font-bold">Part 9 재진술 연습</h4>
+                <p className="text-violet-100 text-sm mt-0.5">
+                  리퍼레이즈 듣기 → 취지 다시 말하기 → No/Yes 답하기 🎧
+                </p>
+              </div>
+              <ArrowRight className="w-6 h-6 text-white/70 shrink-0" />
+            </motion.div>
+          </Link>
 
           {/* 모의 면접 대화 — 메인 추천 카드 */}
           <Link href="/n400-interview">
