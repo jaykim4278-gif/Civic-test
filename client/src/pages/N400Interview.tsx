@@ -41,19 +41,22 @@ function pickFemaleVoice(): SpeechSynthesisVoice | null {
   if (typeof window === "undefined" || !window.speechSynthesis) return null;
   const voices = window.speechSynthesis.getVoices();
   if (!voices.length) return null;
-  const en = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith("en"));
-  const pool = en.length ? en : voices;
+  // 미국 영어(en-US)만 우선 — 영국/호주 발음 배제. 없으면 일반 영어, 그것도 없으면 전체.
+  const enUS = voices.filter((v) => (v.lang || "").toLowerCase() === "en-us");
+  const en = voices.filter((v) => (v.lang || "").toLowerCase().startsWith("en"));
+  const pool = enUS.length ? enUS : en.length ? en : voices;
 
   const score = (v: SpeechSynthesisVoice) => {
     const n = (v.name || "").toLowerCase();
+    const lang = (v.lang || "").toLowerCase();
     let s = 0;
+    if (lang === "en-us") s += 200; // 미국식 최우선 (미국 심사관 억양)
+    else if (/^en-(gb|au|in|ie|nz|za|ca|sg|hk|ph)/.test(lang)) s -= 300; // 비미국 영어 배제
     if (/(natural|neural|online|premium|enhanced)/.test(n)) s += 100; // 사람 같은 억양
     if (/female|woman/.test(n)) s += 60;
     const idx = FEMALE_VOICE_NAMES.findIndex((name) => n.includes(name));
     if (idx >= 0) s += 80 - idx; // 알려진 여성 이름, 앞쪽일수록 우선
-    if (n.includes("google") && v.lang === "en-US") s += 60; // Chrome 기본(여성, 자연스러움)
-    if (v.lang === "en-US") s += 30; // 미국 심사관 억양
-    else if (v.lang.toLowerCase().startsWith("en")) s += 5;
+    if (n.includes("google") && lang === "en-us") s += 60; // Chrome 기본(여성, 자연스러움)
     if (v.localService === false) s += 10; // 온라인 음성이 보통 더 자연스러움
     if (MALE_VOICE_NAMES.test(n)) s -= 150; // 남성 음성은 절대 선택 안 함
     return s;
@@ -96,12 +99,8 @@ function useSpeak() {
   const makeUtterance = (text: string) => {
     const u = new SpeechSynthesisUtterance(text);
     const v = voiceRef.current || pickFemaleVoice();
-    if (v) {
-      u.voice = v;
-      u.lang = v.lang;
-    } else {
-      u.lang = "en-US";
-    }
+    if (v) u.voice = v;
+    u.lang = "en-US"; // 항상 미국 영어로 발음
     // 심사관처럼: 또렷하고 차분하게, 음성 고유의 자연스러운 억양 유지.
     u.rate = slowRef.current ? 0.72 : 0.92;
     u.pitch = 1;
