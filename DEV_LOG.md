@@ -31,8 +31,18 @@
 - **순서대로 출제** — `buildQueue`에서 셔플·'연습 필요 우선' 정렬 제거 → 폼 순서(1 → 37) 그대로 출제(오피서가 순서대로 묻는 흐름과 동일). `PART9_QUESTIONS`가 이미 폼 순서이므로 filter만 적용. (개발 중 HMR Fast Refresh가 reph state를 보존해 "모의 표현부터 시작"처럼 보였으나 fresh 로드/프로덕션은 1번·원문부터 정상)
 - **TTS 미국 발음 강제** — `pickFemaleVoice`를 en-US 음성만 우선 풀로(영국 en-GB·호주 en-AU 등은 점수 −300으로 배제, en-US는 +200), `utterance.lang`을 항상 `"en-US"`로 고정. 같은 음성 로직을 쓰는 3개 페이지(재진술 연습·문장 속 단어·모의 면접) 모두 적용. 검증 환경에서 `Microsoft Zira (en-US)` 선택 확인
 
-### 다음
-- 커밋·push 시 Vercel 자동 배포 (이번 작업은 프론트엔드 전용 — `api/index.ts` 변경 없음)
+### 배포 상태 (세션 종료 시점)
+- `b3a3fe1` 재진술 연습 탭 / `63518d8` TTS 미국 발음 → **main push 완료, Vercel 자동 배포됨**
+- 사용자 휴대폰에서 발음 확인: **"잘 됩니다" ✓**
+
+### 다음 세션 할 일
+1. (선택) 재진술 데이터 다듬기 — 사용자 피드백 기반 표현·음성 추가 조정. 본인 해당 항목(특히 체포 15.b)은 인터뷰 전 **실제 기록과 대조** (체포 문항 결정 근거는 메모리 `n400-15b-answer-decision` 참조)
+2. 기존 이슈 정리: 죽은 `Study.tsx` 삭제 + `QuestionsList.tsx` 사전존재 TS 에러
+3. (인프라) `server/routes.ts` ↔ `api/index.ts` API 로직 중복 통합 — 이전 세션부터 미해결
+4. (참고) 로컬 Neon DB TLS 인증서 오류는 이 기능과 무관, 배포 영향 없음
+
+### 하네스 개선
+- **HMR Fast Refresh 잔상 주의 (이번 세션 3회 반복)** — 큰 state(`reph` 등) 변경 Edit를 여러 번 한 뒤 `location.reload()`로 검증하면 Fast Refresh가 이전 state를 보존해 "잘못 보이는" 현상이 반복됨 (정답 단계부터 표시 / 모의 표현부터 시작 / 콘솔 누적 에러). 매번 멀쩡한데 화면만 이상해 디버깅 시간 낭비. → **큰 변경 후 검증은 dev 서버 재시작(`preview_stop` → `preview_start`, 새 serverId)으로 fresh 상태에서 할 것.** `location.href`(같은 URL)는 리로드조차 안 되니 주의.
 
 ---
 
