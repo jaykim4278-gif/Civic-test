@@ -17,6 +17,7 @@ import {
   VolumeX,
   Search,
   ChevronDown,
+  ChevronLeft,
   CheckCircle2,
   RotateCcw,
   Headphones,
@@ -42,6 +43,7 @@ import {
   MOCK_NOTICE,
   type Part9Question,
   type RestatementTiers,
+  type Rephrasing,
 } from "@/data/n400_part9_restate";
 
 // ── Female English voice picker (sentence_vocab 페이지와 동일 로직) ──────────
@@ -406,12 +408,19 @@ function PracticeEngine({
 
   const [queue, setQueue] = useState<Part9Question[]>([]);
   const [idx, setIdx] = useState(0);
-  const [reph, setReph] = useState("");
+  const [reph, setReph] = useState<Rephrasing>({ en: "", ko: "" });
   const [revealed, setRevealed] = useState(false);
   const [done, setDone] = useState(false);
 
-  // 출제 풀 = 공식 원문 + 모의 리퍼레이즈 (원문도 기본 포함)
-  const variantsOf = (q: Part9Question) => [q.official_en, ...q.rephrasings];
+  // 출제 풀 = 공식 원문 + 모의 리퍼레이즈 (원문도 기본 포함). 각 항목은 {en, ko}.
+  const variantsOf = (q: Part9Question): Rephrasing[] => [
+    { en: q.official_en, ko: q.ko },
+    ...q.rephrasings,
+  ];
+  const officialVariant = (q: Part9Question): Rephrasing => ({
+    en: q.official_en,
+    ko: q.ko,
+  });
 
   const buildQueue = useCallback(() => {
     // PART9_QUESTIONS는 폼 순서(1 → 37)이므로 정렬·셔플 없이 그대로 출제한다.
@@ -428,7 +437,7 @@ function PracticeEngine({
     setIdx(0);
     setRevealed(false);
     setDone(q.length === 0);
-    setReph(q.length ? q[0].official_en : ""); // 새 문제는 원문을 기본으로
+    setReph(q.length ? officialVariant(q[0]) : { en: "", ko: "" }); // 새 문제는 원문을 기본으로
   }, [buildQueue]);
 
   // 필터 변경 시 새로 시작
@@ -439,34 +448,44 @@ function PracticeEngine({
 
   const current = queue[idx];
 
-  // 새 문제가 나오면 자동으로 한 번 들려준다 (텍스트는 숨김)
+  // 새 문제로 이동하면 자동으로 한 번 들려준다 (텍스트는 숨김).
+  // current.id가 바뀔 때만 재생 — '다른 표현'으로 reph만 바뀔 땐 another()가 직접 재생.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (current && reph && !revealed) {
-      const t = setTimeout(() => sp.play(reph, `q-${current.id}`, rate), 350);
+    if (current && reph.en && !revealed) {
+      const t = setTimeout(() => sp.play(reph.en, `q-${current.id}`, rate), 350);
       return () => clearTimeout(t);
     }
-  }, [current?.id, reph]);
+  }, [current?.id]);
 
   const reveal = () => {
     sp.stop();
     setRevealed(true);
   };
   const replay = () => {
-    if (current) sp.play(reph, `q-${current.id}`, rate);
+    if (current) sp.play(reph.en, `q-${current.id}`, rate);
   };
   const another = () => {
     if (!current) return;
     const pool = variantsOf(current); // 원문 + 리퍼레이즈
     let r = pool[Math.floor(Math.random() * pool.length)];
     let guard = 0;
-    while (pool.length > 1 && r === reph && guard < 8) {
+    while (pool.length > 1 && r.en === reph.en && guard < 8) {
       r = pool[Math.floor(Math.random() * pool.length)];
       guard++;
     }
     setReph(r);
-    sp.play(r, `q-${current.id}`, rate);
+    sp.play(r.en, `q-${current.id}`, rate);
   };
+  // 특정 문항으로 이동 (이전/점프 공용)
+  const goTo = (target: number) => {
+    if (target < 0 || target >= queue.length || target === idx) return;
+    sp.stop();
+    setIdx(target);
+    setReph(officialVariant(queue[target])); // 새 문제는 원문을 기본으로
+    setRevealed(false);
+  };
+  const prev = () => goTo(idx - 1);
   const next = (status?: Status) => {
     if (status && current) progress.set(current.id, status);
     sp.stop();
@@ -476,7 +495,7 @@ function PracticeEngine({
     }
     const ni = idx + 1;
     setIdx(ni);
-    setReph(queue[ni].official_en); // 새 문제는 원문을 기본으로
+    setReph(officialVariant(queue[ni])); // 새 문제는 원문을 기본으로
     setRevealed(false);
   };
 
@@ -566,8 +585,21 @@ function PracticeEngine({
         </div>
       </div>
 
-      {/* 진행 바 */}
-      <div className="flex items-center gap-3">
+      {/* 진행 바 + 이전 버튼 + 문항 점프 */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={prev}
+          disabled={idx <= 0}
+          className={cn(
+            "shrink-0 inline-flex items-center gap-0.5 rounded-full pl-2 pr-3 py-1.5 text-xs font-bold border-2 transition-colors",
+            idx <= 0
+              ? "border-slate-100 text-slate-300 cursor-not-allowed"
+              : "border-slate-200 text-slate-600 hover:bg-slate-50 active:scale-95",
+          )}
+          title="이전 문항으로 돌아가기"
+        >
+          <ChevronLeft className="w-4 h-4" /> 이전
+        </button>
         <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
           <motion.div
             className="h-full bg-violet-500"
@@ -575,9 +607,23 @@ function PracticeEngine({
             animate={{ width: `${((idx + 1) / Math.max(queue.length, 1)) * 100}%` }}
           />
         </div>
-        <span className="text-xs font-bold text-slate-400 tabular-nums">
-          {idx + 1} / {queue.length}
-        </span>
+        {/* 점프: 원하는 문항으로 바로 이동 (현재 위치 표시 겸용) */}
+        <div className="shrink-0 relative">
+          <select
+            value={idx}
+            onChange={(e) => goTo(Number(e.target.value))}
+            className="appearance-none text-xs font-bold text-slate-500 bg-slate-100 rounded-full pl-3 pr-7 py-1.5 outline-none cursor-pointer tabular-nums hover:bg-slate-200 transition-colors"
+            title="문항 점프 — 원하는 번호로 바로 이동"
+            aria-label="문항 점프"
+          >
+            {queue.map((q, i) => (
+              <option key={q.id} value={i}>
+                {i + 1} / {queue.length} · #{q.id}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
       </div>
 
       {current && (
@@ -626,18 +672,22 @@ function PracticeEngine({
                     <span
                       className={cn(
                         "inline-block text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full",
-                        reph === current.official_en
+                        reph.en === current.official_en
                           ? "bg-emerald-100 text-emerald-600"
                           : "bg-violet-100 text-violet-600",
                       )}
                     >
-                      {reph === current.official_en
+                      {reph.en === current.official_en
                         ? "📋 공식 원문 그대로"
                         : "🗣️ 모의 표현 (리퍼레이즈)"}
                     </span>
                   </div>
                   <p className="text-lg text-slate-800 font-semibold leading-relaxed whitespace-pre-line">
-                    {reph}
+                    {reph.en}
+                  </p>
+                  {/* 한국어 뜻 — 영어 아래에 함께 표시 */}
+                  <p className="text-sm text-slate-500 mt-2 pt-2 leading-relaxed border-t border-slate-200/70 whitespace-pre-line">
+                    {reph.ko}
                   </p>
                 </div>
               ) : (
@@ -701,11 +751,12 @@ function PracticeEngine({
                   </span>
                   <SpeakerButton
                     active={sp.speakingKey === `r-${current.id}`}
-                    onClick={() => sp.toggle(reph, `r-${current.id}`, rate)}
+                    onClick={() => sp.toggle(reph.en, `r-${current.id}`, rate)}
                     size="sm"
                   />
                 </div>
-                <p className="text-slate-700 font-medium leading-relaxed">{reph}</p>
+                <p className="text-slate-700 font-medium leading-relaxed">{reph.en}</p>
+                <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">{reph.ko}</p>
               </div>
 
               {/* 모범 재진술 — 핵심 (상황별 3단) */}
@@ -729,6 +780,69 @@ function PracticeEngine({
                   <p className="text-sm text-amber-800 leading-relaxed">{current.note}</p>
                 </div>
               )}
+
+              {/* 이 질문의 모든 표현 + 뜻 — 표현은 달라도 답·재진술은 동일 */}
+              <div className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
+                <div className="flex items-center gap-1.5 px-4 pt-3.5 pb-1.5">
+                  <Repeat className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                    오피서가 이렇게도 물어요 · 뜻은 모두 같아요
+                  </span>
+                </div>
+                <div className="px-3.5 pb-3.5 space-y-1.5">
+                  {variantsOf(current).map((v, i) => {
+                    const asked = v.en === reph.en;
+                    const isOfficial = v.en === current.official_en;
+                    return (
+                      <div
+                        key={i}
+                        className={cn(
+                          "flex items-start gap-2 rounded-xl px-3 py-2 border",
+                          asked
+                            ? "bg-violet-50 border-violet-200"
+                            : "bg-slate-50 border-transparent",
+                        )}
+                      >
+                        <SpeakerButton
+                          active={sp.speakingKey === `rv-${current.id}-${i}`}
+                          onClick={() => sp.toggle(v.en, `rv-${current.id}-${i}`, rate)}
+                          size="sm"
+                          variant="slate"
+                        />
+                        <div className="flex-1 min-w-0">
+                          {(isOfficial || asked) && (
+                            <div className="flex flex-wrap items-center gap-1 mb-0.5">
+                              {isOfficial && (
+                                <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                                  📋 공식 원문
+                                </span>
+                              )}
+                              {asked && (
+                                <span className="text-[9px] font-bold text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded-full">
+                                  방금 들은 표현
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          <p className="text-sm text-slate-700 leading-snug whitespace-pre-line">
+                            {v.en}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5 leading-snug">
+                            {v.ko}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <p className="text-[11px] text-slate-400 pt-1 px-1 leading-relaxed">
+                    표현이 달라도{" "}
+                    <b className="text-slate-500">
+                      재진술과 짧은 답은 위와 동일
+                    </b>
+                    합니다.
+                  </p>
+                </div>
+              </div>
 
               {/* 취지 · 원문 · 번역 */}
               <details className="group rounded-2xl border border-slate-100 bg-white">
@@ -877,14 +991,21 @@ function BrowseCard({
                 {q.rephrasings.map((r, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2"
+                    className="flex items-start gap-2 rounded-xl bg-slate-50 px-3 py-2"
                   >
                     <SpeakerButton
                       active={sp.speakingKey === `b-r-${q.id}-${i}`}
-                      onClick={() => sp.toggle(r, `b-r-${q.id}-${i}`)}
+                      onClick={() => sp.toggle(r.en, `b-r-${q.id}-${i}`)}
                       size="sm"
                     />
-                    <span className="text-sm text-slate-600 flex-1">{r}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="block text-sm text-slate-600 leading-snug">
+                        {r.en}
+                      </span>
+                      <span className="block text-xs text-slate-400 mt-0.5 leading-snug">
+                        {r.ko}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -954,7 +1075,9 @@ function Browse({
         item.restatement_tiers.short.ko.includes(q) ||
         item.restatement_tiers.medium.en.toLowerCase().includes(q) ||
         item.restatement_tiers.long.en.toLowerCase().includes(q) ||
-        item.rephrasings.some((r) => r.toLowerCase().includes(q))
+        item.rephrasings.some(
+          (r) => r.en.toLowerCase().includes(q) || r.ko.includes(q),
+        )
       );
     });
   }, [query, groupId, scope, progress.map]);
