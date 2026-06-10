@@ -408,19 +408,25 @@ function PracticeEngine({
 
   const [queue, setQueue] = useState<Part9Question[]>([]);
   const [idx, setIdx] = useState(0);
-  const [reph, setReph] = useState<Rephrasing>({ en: "", ko: "" });
+  const [reph, setReph] = useState<Rephrasing>({
+    en: "",
+    ko: "",
+    restate: { en: "", ko: "" },
+  });
   const [revealed, setRevealed] = useState(false);
   const [done, setDone] = useState(false);
 
-  // 출제 풀 = 공식 원문 + 모의 리퍼레이즈 (원문도 기본 포함). 각 항목은 {en, ko}.
-  const variantsOf = (q: Part9Question): Rephrasing[] => [
-    { en: q.official_en, ko: q.ko },
-    ...q.rephrasings,
-  ];
+  // 공식 원문을 리퍼레이즈와 동일한 {en, ko, restate} 형태로. 재진술은 기본(short).
   const officialVariant = (q: Part9Question): Rephrasing => ({
     en: q.official_en,
     ko: q.ko,
+    restate: q.restatement_tiers.short,
   });
+  // 출제 풀 = 공식 원문 + 모의 리퍼레이즈 (원문도 기본 포함).
+  const variantsOf = (q: Part9Question): Rephrasing[] => [
+    officialVariant(q),
+    ...q.rephrasings,
+  ];
 
   const buildQueue = useCallback(() => {
     // PART9_QUESTIONS는 폼 순서(1 → 37)이므로 정렬·셔플 없이 그대로 출제한다.
@@ -437,7 +443,9 @@ function PracticeEngine({
     setIdx(0);
     setRevealed(false);
     setDone(q.length === 0);
-    setReph(q.length ? officialVariant(q[0]) : { en: "", ko: "" }); // 새 문제는 원문을 기본으로
+    setReph(
+      q.length ? officialVariant(q[0]) : { en: "", ko: "", restate: { en: "", ko: "" } },
+    ); // 새 문제는 원문을 기본으로
   }, [buildQueue]);
 
   // 필터 변경 시 새로 시작
@@ -830,16 +838,45 @@ function PracticeEngine({
                           <p className="text-xs text-slate-400 mt-0.5 leading-snug">
                             {v.ko}
                           </p>
+                          {/* 이 표현의 단어에 맞춘 재진술 답 */}
+                          <div className="mt-1.5 rounded-lg bg-violet-50/70 border border-violet-100 px-2.5 py-1.5">
+                            <div className="flex items-center gap-1 mb-0.5">
+                              <MessageSquare className="w-3 h-3 text-violet-400 shrink-0" />
+                              <span className="text-[9px] font-bold uppercase tracking-wide text-violet-400">
+                                이렇게 답하기
+                              </span>
+                              <button
+                                onClick={() =>
+                                  sp.toggle(v.restate.en, `rva-${current.id}-${i}`, rate)
+                                }
+                                className="ml-auto shrink-0 text-violet-400 hover:text-violet-600 active:scale-95 transition-transform"
+                                aria-label={
+                                  sp.speakingKey === `rva-${current.id}-${i}`
+                                    ? "Stop"
+                                    : "Play"
+                                }
+                              >
+                                {sp.speakingKey === `rva-${current.id}-${i}` ? (
+                                  <VolumeX className="w-3.5 h-3.5" />
+                                ) : (
+                                  <Volume2 className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
+                            <p className="text-[13px] text-violet-900 font-semibold leading-snug">
+                              {v.restate.en}
+                            </p>
+                            <p className="text-[11px] text-violet-500 mt-0.5 leading-snug">
+                              {v.restate.ko}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     );
                   })}
                   <p className="text-[11px] text-slate-400 pt-1 px-1 leading-relaxed">
-                    표현이 달라도{" "}
-                    <b className="text-slate-500">
-                      재진술과 짧은 답은 위와 동일
-                    </b>
-                    합니다.
+                    표현마다 재진술은 위처럼 살짝 맞춰 말하면 되고,{" "}
+                    <b className="text-slate-500">짧은 답은 표현이 달라도 같습니다.</b>
                   </p>
                 </div>
               </div>

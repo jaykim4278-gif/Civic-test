@@ -39,6 +39,7 @@ export interface RestatementTiers {
 export interface Rephrasing {
   en: string;
   ko: string;
+  restate: RestatementTier; // 이 표현의 단어에 맞춘 재진술(한 줄 답) en+ko
 }
 
 export interface RestateItem {
@@ -1986,6 +1987,343 @@ export const REPHRASING_KO: Record<string, string[]> = {
   ],
 };
 
+// ── 표현별 맞춤 재진술 (RESTATE_ITEMS.rephrasings와 id·순서 1:1 대응) ──────────
+//  각 리퍼레이즈의 단어에 맞춰 "You're asking if I …" 한 줄 답을 살짝 바꾼 것.
+//  의미는 동일(짧은 답 No/Yes도 동일)하고 표현만 그 질문에 맞춤. en+ko.
+export const REPHRASING_RESTATE: Record<string, RestatementTier[]> = {
+  "1": [
+    { en: "You're asking if I ever claimed to be a U.S. citizen, in writing or any other way.", ko: "제가 서면이든 다른 방식으로든 미국 시민이라고 주장한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever told someone, or wrote on a form, that I was a U.S. citizen when I wasn't.", ko: "제가 사실이 아닌데 누군가에게 말하거나 서류에 미국 시민이라고 적은 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever represented or claimed, in writing or otherwise, that I'm a U.S. citizen.", ko: "제가 서면이나 다른 방식으로 미국 시민이라고 내세우거나 주장한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever claimed to be a U.S. citizen to get a job, a benefit, or for any reason.", ko: "제가 일자리나 혜택 등 어떤 이유로든 미국 시민이라고 주장한 적 있는지 묻는 거죠." },
+  ],
+  "2": [
+    { en: "You're asking if I ever registered to vote or voted in any federal, state, or local U.S. election.", ko: "제가 연방·주·지방 어떤 미국 선거에서든 투표 등록을 하거나 투표한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever signed up to vote or cast a vote in any election here — federal, state, or local.", ko: "제가 연방·주·지방 어떤 선거에서든 투표 신청을 하거나 표를 던진 적 있는지 묻는 거죠." },
+    { en: "You're asking if, since I've been here, I ever registered to vote or voted in any U.S. election.", ko: "제가 이곳에 온 이후 미국 선거에서 투표 등록을 하거나 투표한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever put my name on voter registration or took part in voting in any election here.", ko: "제가 이 나라 선거에서 유권자 등록에 이름을 올리거나 투표에 참여한 적 있는지 묻는 거죠." },
+  ],
+  "3": [
+    { en: "You're asking if I currently owe any overdue federal, state, or local taxes.", ko: "제가 현재 연방·주·지방의 체납 세금이 있는지 묻는 거죠." },
+    { en: "You're asking if, right now, I owe any past-due or unpaid federal, state, or local taxes.", ko: "제가 지금 기한이 지났거나 미납된 연방·주·지방 세금이 있는지 묻는 거죠." },
+    { en: "You're asking if, at this time, I still owe any overdue taxes to the government.", ko: "제가 현재 정부에 아직 내지 않은 체납 세금이 있는지 묻는 거죠." },
+  ],
+  "4": [
+    { en: "You're asking if, since my green card, I ever called myself a nonresident alien on a tax return.", ko: "제가 영주권 이후 세금 신고에서 스스로를 비거주 외국인이라 한 적 있는지 묻는 거죠." },
+    { en: "You're asking if, since my green card, I filed as a nonresident or skipped filing for that reason.", ko: "제가 영주권 이후 비거주자로 신고하거나 그 이유로 신고를 안 한 적 있는지 묻는 거죠." },
+    { en: "You're asking if, after becoming a resident, I ever claimed to be a nonresident alien on a tax return.", ko: "제가 영주권자가 된 후 세금 신고에서 비거주 외국인이라 주장한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever chose not to file a tax return because I thought I was a nonresident.", ko: "제가 비거주자라고 생각해 세금 신고를 안 하기로 한 적 있는지 묻는 거죠." },
+  ],
+  "5.a": [
+    { en: "You're asking if I was ever a member of, involved in, or associated with a Communist or totalitarian party anywhere.", ko: "제가 세계 어디서든 공산당·전체주의 정당에 소속·관여·연관된 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever belonged to or had any connection with a Communist or totalitarian party in any country.", ko: "제가 어느 나라에서든 공산당·전체주의 정당에 속하거나 연관된 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever, anywhere, a member of or associated with a Communist or totalitarian party.", ko: "제가 언제 어디서든 공산당·전체주의 정당에 소속·연관된 적 있는지 묻는 거죠." },
+  ],
+  "5.b": [
+    { en: "You're asking if I ever advocated overthrowing the U.S. government by force, world communism, or a U.S. dictatorship.", ko: "제가 무력에 의한 미국 정부 전복·세계 공산주의·미국 내 독재를 옹호한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever supported, or joined a group supporting, opposing all government or overthrowing it unlawfully.", ko: "제가 모든 정부 반대나 위헌적 정부 전복을 지지하거나 그런 단체에 속한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever advocated, or joined a group advocating, harming officials, damaging property, or sabotage.", ko: "제가 공무원 가해·재산 손괴·사보타주를 옹호하거나 그런 단체에 연관된 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever promoted, or joined a group promoting, the violent overthrow of the U.S. government or all law.", ko: "제가 미국 정부나 모든 법의 폭력적 전복을 조장하거나 그런 단체에 속한 적 있는지 묻는 거죠." },
+  ],
+  "6.a": [
+    { en: "You're asking if I was ever a member of, or gave support to, a group that used weapons or explosives to harm people or property.", ko: "제가 사람·재산을 해치려 무기·폭발물을 쓴 단체에 속하거나 지원한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever associated with, or assisted, a group that used weapons or explosives to harm people or destroy property.", ko: "제가 사람·재산을 해칠 의도로 무기·폭발물을 쓴 단체에 연관·지원한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever supported, with money, labor, or services, a group that used a weapon or explosive against a person or property.", ko: "제가 사람·재산에 무기·폭발물을 쓴 단체를 돈·노동·서비스로 지원한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever belonged to, or helped, a group that used a weapon or explosive to hurt someone or cause damage.", ko: "제가 누군가를 해치려 무기·폭발물을 쓴 단체에 속하거나 도운 적 있는지 묻는 거죠." },
+  ],
+  "6.b": [
+    { en: "You're asking if I was ever a member of, or supported, a group that did kidnapping, assassination, or hijacking of a plane, ship, or vehicle.", ko: "제가 납치·암살·항공기·선박·차량 하이재킹을 한 단체에 속하거나 지원한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever associated with, or gave money, labor, or services to, a group that did kidnapping, assassination, or hijacking.", ko: "제가 납치·암살·하이재킹을 한 단체에 연관되거나 돈·노동·서비스를 준 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever supported a group that did assassination, kidnapping, or sabotage of a plane, ship, or vehicle.", ko: "제가 암살·납치·교통수단 사보타주를 한 단체를 지원한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever helped, or belonged to, a group that carried out kidnappings, assassinations, or hijackings.", ko: "제가 납치·암살·하이재킹을 저지른 단체를 돕거나 거기 속한 적 있는지 묻는 거죠." },
+  ],
+  "6.c": [
+    { en: "You're asking if I was ever in, or supported, a group that threatened, tried, planned, or encouraged the acts in 6.a or 6.b.", ko: "제가 6.a·6.b의 행위를 위협·시도·계획·선동한 단체에 속하거나 지원한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever associated with, or supported, a group that prepared, planned, or advocated those violent acts.", ko: "제가 그런 폭력 행위를 준비·계획·옹호한 단체에 연관·지원한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever helped, or belonged to, a group that incited others to carry out the acts in 6.a or 6.b.", ko: "제가 6.a·6.b의 행위를 선동한 단체를 돕거나 거기 속한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever gave money, services, or support to a group that tried, conspired, or planned those acts.", ko: "제가 그런 행위를 시도·공모·계획한 단체에 돈·서비스·지원을 준 적 있는지 묻는 거죠." },
+  ],
+  "7.a": [
+    { en: "You're asking if I ever ordered, committed, assisted with, or took part in torture.", ko: "제가 고문을 지시·실행·방조하거나 가담한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever incited, called for, helped with, or otherwise took part in torturing someone.", ko: "제가 고문을 선동·요구·방조하거나 가담한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever involved in torturing someone — ordering, doing, or helping with it.", ko: "제가 고문을 지시·실행·방조하는 식으로든 관여한 적 있는지 묻는 거죠." },
+  ],
+  "7.b": [
+    { en: "You're asking if I ever ordered, committed, assisted with, or took part in genocide.", ko: "제가 집단학살을 지시·실행·방조하거나 가담한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever incited, called for, helped with, or took part in genocide.", ko: "제가 집단학살을 선동·요구·방조하거나 가담한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever involved in genocide — ordering, carrying it out, or assisting.", ko: "제가 집단학살을 지시·실행·방조하는 식으로든 관여한 적 있는지 묻는 거죠." },
+  ],
+  "7.c": [
+    { en: "You're asking if I ever ordered, committed, assisted with, or took part in killing or trying to kill anyone.", ko: "제가 사람을 죽이거나 죽이려 한 일을 지시·실행·방조하거나 가담한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever incited, helped with, or took part in killing or trying to kill someone.", ko: "제가 사람을 죽이거나 죽이려 한 일을 선동·방조하거나 가담한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever involved in killing, or trying to kill, a person.", ko: "제가 사람을 죽이거나 죽이려는 일에 관여한 적 있는지 묻는 거죠." },
+  ],
+  "7.d": [
+    { en: "You're asking if I ever ordered, committed, assisted with, or took part in intentionally injuring, or trying to injure, someone.", ko: "제가 고의로 사람을 심하게 다치게 하거나 시도한 일을 지시·실행·방조하거나 가담한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever helped with, or took part in, deliberately causing serious injury to someone.", ko: "제가 고의로 사람에게 중상을 입히는 일을 돕거나 가담한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever took part in intentionally and severely injuring someone, or attempting to.", ko: "제가 고의로 사람을 심하게 다치게 하거나 시도하는 일에 가담한 적 있는지 묻는 거죠." },
+  ],
+  "7.e": [
+    { en: "You're asking if I ever had any sexual contact with someone who didn't or couldn't consent.", ko: "제가 동의하지 않았거나 할 수 없는 사람과 성적 접촉을 한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever involved in sexual contact with someone who didn't agree, couldn't agree, or was forced or threatened.", ko: "제가 동의 안 했거나 못 했거나 강요·위협당한 사람과 성적 접촉에 관여한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever committed, assisted with, or took part in sexual activity with someone being forced or threatened.", ko: "제가 강요·위협당한 사람과의 성적 행위를 실행·방조하거나 가담한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever had sexual contact with someone who couldn't agree or was being coerced.", ko: "제가 동의할 수 없거나 강요당한 사람과 성적 접촉을 한 적 있는지 묻는 거죠." },
+  ],
+  "7.f": [
+    { en: "You're asking if I ever ordered, committed, assisted with, or took part in stopping someone from practicing their religion.", ko: "제가 누군가의 종교 활동을 막는 일을 지시·실행·방조하거나 가담한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever involved in preventing someone from practicing their religion.", ko: "제가 사람의 종교 활동을 막는 일에 관여한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever helped with, or took part in, stopping someone from practicing their faith.", ko: "제가 누군가의 신앙 실천을 막는 일을 돕거나 가담한 적 있는지 묻는 거죠." },
+  ],
+  "7.g": [
+    { en: "You're asking if I ever harmed someone because of their race, religion, national origin, social group, or politics.", ko: "제가 인종·종교·국적·소속 집단·정치 견해 때문에 누군가에게 해를 가한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever involved in hurting someone because of their religion, nationality, race, or political views.", ko: "제가 종교·국적·인종·정치 견해 때문에 누군가를 해치는 일에 관여한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever ordered, committed, or assisted with harming someone for their race, religion, or political opinion.", ko: "제가 인종·종교·정치 견해 때문에 누군가를 해치는 일을 지시·실행·방조한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever took part in persecuting someone for their social group or beliefs.", ko: "제가 특정 사회집단 소속이나 신념 때문에 누군가를 박해하는 데 가담한 적 있는지 묻는 거죠." },
+  ],
+  "8.a": [
+    { en: "You're asking if I ever served in, was a member of, assisted, or took part in any military or police unit.", ko: "제가 군대·경찰 부대에 복무·소속·지원·참여한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever served in or was part of any military or police unit, in any country.", ko: "제가 어느 나라에서든 군대·경찰 부대에 복무하거나 속한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever served in, helped, or took part in any military or police unit.", ko: "제가 군대·경찰 부대에 복무·지원·참여한 적 있는지 묻는 거죠." },
+  ],
+  "8.b": [
+    { en: "You're asking if I ever served in or supported an armed group like a paramilitary, self-defense, vigilante, rebel, or guerrilla group.", ko: "제가 준군사·자위대·자경단·반군·게릴라 같은 무장단체에 복무·지원한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever part of an armed group such as a militia, paramilitary, rebel, or guerrilla group.", ko: "제가 민병대·준군사·반군·게릴라 같은 무장단체에 속한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever served in or helped a non-official armed group, like a self-defense or vigilante unit.", ko: "제가 정규군이 아닌 무장단체(자위대·자경단 등)에 복무하거나 도운 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever belonged to or took part in an armed group like rebels, insurgents, or a paramilitary unit.", ko: "제가 반군·반란세력·준군사 같은 무장단체에 속하거나 참여한 적 있는지 묻는 거죠." },
+  ],
+  "9": [
+    { en: "You're asking if I ever worked, volunteered, or served where people were detained, like a prison or camp.", ko: "제가 교도소·수용소처럼 사람을 구금하는 곳에서 일·자원봉사·복무한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever worked at a place where people were held and not free to leave, like a prison or detention camp.", ko: "제가 사람들이 떠날 수 없이 갇힌 곳(교도소·구금 수용소)에서 일한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever directed or took part in any activity that involved detaining people.", ko: "제가 사람을 구금하는 활동을 지휘하거나 가담한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever worked at or helped run a prison, jail, labor camp, or any place where people were held against their will.", ko: "제가 교도소·노동수용소 등 사람을 강제로 가둔 시설에서 일하거나 운영을 도운 적 있는지 묻는 거죠." },
+  ],
+  "10.a": [
+    { en: "You're asking if I was ever part of, or helped, a group that used a weapon against a person or threatened to.", ko: "제가 사람에게 무기를 쓰거나 위협한 단체에 속하거나 도운 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever belonged to or assisted a group that used a weapon on someone or threatened to.", ko: "제가 누군가에게 무기를 쓰거나 위협한 단체에 속하거나 지원한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever part of a group that used, or threatened to use, a weapon against a person.", ko: "제가 사람에게 무기를 쓰거나 쓰겠다고 위협한 단체에 속한 적 있는지 묻는 거죠." },
+  ],
+  "10.b": [
+    { en: "You're asking if, while in that group, I myself ever used a weapon against another person.", ko: "제가 그 단체에 있을 때 직접 다른 사람에게 무기를 쓴 적 있는지 묻는 거죠." },
+    { en: "You're asking if, had that applied to me, I personally used a weapon against someone in that group.", ko: "해당됐다면 제가 그 단체에 있을 때 직접 누군가에게 무기를 쓴 적 있는지 묻는 거죠." },
+    { en: "You're asking if, while part of or helping that group, I ever used a weapon on another person.", ko: "제가 그 단체에 속하거나 돕는 동안 다른 사람에게 무기를 쓴 적 있는지 묻는 거죠." },
+  ],
+  "10.c": [
+    { en: "You're asking if, while in that group, I ever threatened someone that I'd use a weapon on them.", ko: "제가 그 단체에 있을 때 누군가에게 무기를 쓰겠다고 위협한 적 있는지 묻는 거죠." },
+    { en: "You're asking if, had that applied to me, I personally threatened someone with a weapon in that group.", ko: "해당됐다면 제가 그 단체에 있을 때 직접 누군가를 무기로 위협한 적 있는지 묻는 거죠." },
+    { en: "You're asking if, while part of or helping that group, I ever threatened to use a weapon against a person.", ko: "제가 그 단체에 속하거나 돕는 동안 사람에게 무기를 쓰겠다고 위협한 적 있는지 묻는 거죠." },
+  ],
+  "11": [
+    { en: "You're asking if I ever sold, provided, or transported weapons I knew would be used against someone.", ko: "제가 사람에게 쓰일 줄 알면서 무기를 팔거나 제공·운반한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever helped anyone sell, provide, or transport weapons knowing they'd harm someone.", ko: "제가 사람을 해칠 줄 알면서 무기 판매·제공·운반을 도운 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever supplied or moved weapons I believed would be used against someone.", ko: "제가 사람에게 쓰일 거라 믿으며 무기를 공급·운반한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever sold, transported, or helped provide weapons I knew would be used against someone.", ko: "제가 사람에게 쓰일 줄 알면서 무기를 팔거나 운반·제공을 도운 적 있는지 묻는 거죠." },
+  ],
+  "12": [
+    { en: "You're asking if I ever received weapons, paramilitary, or other military-type training.", ko: "제가 무기·준군사·기타 군사형 훈련을 받은 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever had any weapons or military-style training, including paramilitary.", ko: "제가 준군사를 포함해 무기·군사형 훈련을 받은 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever received training in weapons, or any paramilitary or military-type training.", ko: "제가 무기 훈련이나 준군사·군사형 훈련을 받은 적 있는지 묻는 거죠." },
+  ],
+  "13": [
+    { en: "You're asking if I ever recruited, enlisted, forced, or used anyone under 15 to serve in or help an armed group.", ko: "제가 15세 미만을 무장단체에 복무·지원시키려 모집·등록·강제·이용한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever asked, signed up, required, or used anyone under 15 to serve in or assist an armed group.", ko: "제가 15세 미만에게 무장단체 복무·지원을 요청·등록·요구하거나 이용한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever recruited or used a child under 15 to serve in or help an armed group.", ko: "제가 15세 미만 아동을 무장단체에 복무·지원시키려 모집·이용한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever enlisted or conscripted someone under 15 into an armed group, or tried to.", ko: "제가 15세 미만을 무장단체에 입대·징집했거나 시도한 적 있는지 묻는 거죠." },
+  ],
+  "14": [
+    { en: "You're asking if I ever used anyone under 15 in hostilities, like combat or combat-related services.", ko: "제가 15세 미만을 전투나 전투 관련 활동 등 적대 행위에 이용한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever used someone under 15 in fighting or combat support, like carrying supplies or being a messenger.", ko: "제가 15세 미만을 전투나 보급·전령 같은 전투 지원에 이용한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever used a child under 15 in hostilities, or worked with others to do so.", ko: "제가 15세 미만 아동을 적대 행위에 이용하거나 그러려 협력한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever used anyone under 15 in combat or combat-related activities.", ko: "제가 15세 미만을 전투나 전투 관련 활동에 이용한 적 있는지 묻는 거죠." },
+  ],
+  "15.a": [
+    { en: "You're asking if I ever committed, agreed to, asked for, helped, or tried to commit a crime I wasn't arrested for.", ko: "제가 체포되지 않은 범죄를 저지르거나 합의·요청·방조·시도한 적 있는지 묻는 거죠." },
+    { en: "You're asking if there's any crime I committed, helped, agreed, or tried to commit but was never arrested for.", ko: "제가 저지르거나 돕거나 합의·시도했지만 체포된 적 없는 범죄가 있는지 묻는 거죠." },
+    { en: "You're asking if I ever did, helped with, or attempted a crime that didn't lead to an arrest.", ko: "제가 체포로 이어지지 않은 범죄를 하거나 돕거나 시도한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever committed or tried to commit any offense I was never arrested for.", ko: "제가 체포된 적 없는 위법을 저지르거나 시도한 적 있는지 묻는 거죠." },
+  ],
+  "15.b": [
+    { en: "You're asking if I was ever arrested, cited, detained, or confined by any official, anywhere, for any reason.", ko: "제가 어디서든 어떤 이유로든 당국에 체포·인용·구금·억류된 적 있는지 묻는 거죠." },
+    { en: "You're asking if, for any reason, I was ever arrested, cited, detained, or charged, here or abroad.", ko: "제가 어떤 이유로든 국내외에서 체포·인용·구금·기소된 적 있는지 묻는 거죠." },
+    { en: "You're asking if any police, military, or immigration official ever arrested, cited, detained, or confined me.", ko: "경찰·군·이민 당국이 저를 체포·인용·구금·억류한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever charged with a crime, or stopped and cited or detained by any official, for any reason.", ko: "제가 어떤 이유로든 범죄로 기소되거나 관리에게 제지·인용·구금된 적 있는지 묻는 거죠." },
+  ],
+  "16": [
+    { en: "You're asking if, had I gotten a suspended sentence, probation, or parole, I completed it.", ko: "제가 집행유예·보호관찰·가석방을 받았다면 그걸 완료했는지 묻는 거죠." },
+    { en: "You're asking if, had I been given a suspended sentence, probation, or parole, I fully finished it.", ko: "제가 집행유예·보호관찰·가석방을 받았다면 완전히 마쳤는지 묻는 거죠." },
+    { en: "You're asking if I completed any probation, parole, or suspended sentence I was given.", ko: "제가 받은 보호관찰·가석방·집행유예를 완료했는지 묻는 거죠." },
+  ],
+  "17.a": [
+    { en: "You're asking if I ever did prostitution, arranged people for it, or took money from it.", ko: "제가 매춘을 하거나 사람을 알선하거나 그 수익을 받은 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever took part in prostitution or made money from it.", ko: "제가 매춘에 가담하거나 그로 돈을 번 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever procured, imported, or arranged people for prostitution, or profited from it.", ko: "제가 매춘을 위해 사람을 알선·반입·주선하거나 이익을 얻은 적 있는지 묻는 거죠." },
+  ],
+  "17.b": [
+    { en: "You're asking if I ever made, grew, distributed, sold, or smuggled illegal drugs or drug paraphernalia.", ko: "제가 불법 마약·마약 도구를 제조·재배·유통·판매·밀수한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever made, cultivated, dispensed, sold, or trafficked illegal drugs.", ko: "제가 불법 마약·규제 약물을 만들거나 재배·조제·판매·밀매한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever produced, distributed, sold, or smuggled illegal drugs or paraphernalia against any law.", ko: "제가 법을 어기고 불법 마약·마약 도구를 생산·유통·판매·밀수한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever involved in manufacturing, selling, or smuggling illegal drugs.", ko: "제가 규제 약물·불법 마약 제조·판매·밀수에 관여한 적 있는지 묻는 거죠." },
+  ],
+  "17.c": [
+    { en: "You're asking if I was ever married to more than one person at the same time.", ko: "제가 동시에 두 명 이상과 결혼한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever legally married to two or more people at once.", ko: "제가 동시에 두 명 이상과 법적으로 혼인한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever had more than one spouse at the same time.", ko: "제가 동시에 배우자가 둘 이상이었던 적 있는지 묻는 거죠." },
+  ],
+  "17.d": [
+    { en: "You're asking if I ever married someone to obtain an immigration benefit.", ko: "제가 이민 혜택을 얻으려 누군가와 결혼한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever married just to get an immigration benefit, like a green card or visa.", ko: "제가 영주권·비자 같은 이민 혜택만을 위해 결혼한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever entered a marriage to gain an immigration benefit.", ko: "제가 이민 혜택을 얻을 목적으로 혼인한 적 있는지 묻는 거죠." },
+  ],
+  "17.e": [
+    { en: "You're asking if I ever helped anyone enter, or try to enter, the U.S. illegally.", ko: "제가 누군가의 미국 불법 입국이나 시도를 도운 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever assisted anyone entering, or trying to enter, the U.S. unlawfully.", ko: "제가 누군가의 미국 불법 입국이나 시도를 지원한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever helped someone cross into the U.S. illegally, or try to.", ko: "제가 누군가가 미국으로 불법으로 넘어오거나 시도하는 것을 도운 적 있는지 묻는 거죠." },
+  ],
+  "17.f": [
+    { en: "You're asking if I ever gambled illegally or received income from illegal gambling.", ko: "제가 불법 도박을 하거나 그 수입을 받은 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever took part in illegal gambling or earned money from it.", ko: "제가 불법 도박에 가담하거나 그로 돈을 번 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever made income from unlawful gambling or betting.", ko: "제가 불법 도박이나 내기로 수입을 올린 적 있는지 묻는 거죠." },
+  ],
+  "17.g": [
+    { en: "You're asking if I ever failed to support my dependents, like child support, or to pay court-ordered alimony.", ko: "제가 부양가족 부양(양육비)이나 법원 명령 위자료를 안 낸 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever failed to provide for my dependents or pay court-ordered child support or alimony.", ko: "제가 부양가족을 부양하지 않거나 법원 명령 양육비·위자료를 안 낸 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever failed to pay child support or court-ordered alimony after a divorce or separation.", ko: "제가 양육비나 이혼·별거 후 법원 명령 위자료를 안 낸 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever failed to financially support my dependents or pay required alimony.", ko: "제가 부양가족을 경제적으로 부양하지 않거나 위자료를 안 낸 적 있는지 묻는 거죠." },
+  ],
+  "17.h": [
+    { en: "You're asking if I ever gave false information to obtain a public benefit in the U.S.", ko: "제가 미국에서 공공 혜택을 받으려 허위 정보를 준 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever provided false or misleading information to get a public benefit.", ko: "제가 공공 혜택을 받으려 허위·오해를 부르는 정보를 준 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever lied or misrepresented something to receive a public benefit.", ko: "제가 공공 혜택을 받으려 거짓말하거나 사실을 왜곡한 적 있는지 묻는 거죠." },
+  ],
+  "18": [
+    { en: "You're asking if I ever gave U.S. officials information or documents that were false, fraudulent, or misleading.", ko: "제가 미국 관리에게 허위·사기·오해를 부르는 정보나 서류를 준 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever provided false, fraudulent, or misleading information or documents to a U.S. official.", ko: "제가 미국 관리에게 허위·사기·오해를 부르는 정보나 서류를 제공한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever submitted untrue, fake, or misleading information or papers to a U.S. official.", ko: "제가 미국 관리에게 사실이 아니거나 위조·오해를 부르는 정보·서류를 제출한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever gave a U.S. official anything false or misleading — information or documents.", ko: "제가 미국 관리에게 허위·오해를 부르는 정보나 서류를 준 적 있는지 묻는 거죠." },
+  ],
+  "19": [
+    { en: "You're asking if I ever lied to U.S. officials to enter the U.S. or to get immigration benefits here.", ko: "제가 미국 입국이나 체류 중 이민 혜택을 얻으려 관리에게 거짓말한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever lied to a U.S. official to enter the country or get immigration benefits while here.", ko: "제가 입국하거나 체류 중 이민 혜택을 얻으려 관리에게 거짓말한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever made false statements to U.S. officials to be admitted or to gain immigration benefits.", ko: "제가 입국 허가나 이민 혜택을 얻으려 관리에게 허위 진술한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever lied to immigration or other U.S. officials to get into the country or gain status.", ko: "제가 입국하거나 신분을 얻으려 이민 당국 등 관리에게 거짓말한 적 있는지 묻는 거죠." },
+  ],
+  "20": [
+    { en: "You're asking if I was ever placed in removal, rescission, or deportation proceedings.", ko: "제가 추방·취소·강제퇴거 절차에 회부된 적 있는지 묻는 거죠." },
+    { en: "You're asking if the government ever put me in removal or deportation proceedings.", ko: "정부가 저를 추방·강제퇴거 절차에 회부한 적 있는지 묻는 거죠." },
+    { en: "You're asking if the government ever started removal, rescission, or deportation proceedings against me.", ko: "정부가 저를 상대로 추방·취소·강제퇴거 절차를 시작한 적 있는지 묻는 거죠." },
+  ],
+  "21": [
+    { en: "You're asking if I was ever removed or deported from the United States.", ko: "제가 미국에서 추방되거나 강제퇴거된 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever actually removed or deported from this country.", ko: "제가 이 나라에서 실제로 추방·강제퇴거된 적 있는지 묻는 거죠." },
+    { en: "You're asking if the United States ever removed or deported me.", ko: "미국이 저를 추방하거나 강제퇴거시킨 적 있는지 묻는 거죠." },
+  ],
+  "22.a": [
+    { en: "You're asking if I'm a male who lived in the U.S. anytime between my 18th and 26th birthdays.", ko: "제가 18~26세 사이에 미국에 산 남성인지 묻는 거죠." },
+    { en: "You're asking if I lived in the U.S. as a man at any point between ages 18 and 26.", ko: "제가 18세에서 26세 사이에 남성으로서 미국에 산 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was a male present in the U.S. anytime between my 18th and 26th birthdays.", ko: "제가 18~26세 사이에 미국에 있던 남성인지 묻는 거죠." },
+  ],
+  "22.b": [
+    { en: "You're asking if, if that applies to me, I registered for the Selective Service.", ko: "해당된다면 제가 병역 등록(Selective Service)을 했는지 묻는 거죠." },
+    { en: "You're asking if I signed up with the Selective Service, the U.S. draft system.", ko: "제가 미국 징병 제도인 Selective Service에 등록했는지 묻는 거죠." },
+    { en: "You're asking if I registered for the Selective Service.", ko: "제가 병역 등록제(Selective Service)에 등록했는지 묻는 거죠." },
+  ],
+  "23": [
+    { en: "You're asking if I ever left the U.S. to avoid being drafted into the armed forces.", ko: "제가 미군 징집을 피하려 미국을 떠난 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever left the country to avoid being drafted into the military.", ko: "제가 군 징집을 피하려 이 나라를 떠난 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever went abroad specifically to escape the U.S. draft.", ko: "제가 미군 징집을 피할 목적으로 해외에 나간 적 있는지 묻는 거죠." },
+  ],
+  "24": [
+    { en: "You're asking if I ever applied for any exemption from U.S. military service.", ko: "제가 미군 복무에서 어떤 면제든 신청한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever applied for any type of exemption from serving in the U.S. military.", ko: "제가 미군 복무 면제를 어떤 형태로든 신청한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever requested to be exempted from military service.", ko: "제가 군 복무 면제를 요청한 적 있는지 묻는 거죠." },
+  ],
+  "25": [
+    { en: "You're asking if I ever served in the U.S. armed forces.", ko: "제가 미군에서 복무한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever a member of the U.S. military.", ko: "제가 미국 군대의 일원이었던 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever served in the U.S. armed forces.", ko: "제가 미군에서 복무한 적 있는지 묻는 거죠." },
+  ],
+  "26.a": [
+    { en: "You're asking if I'm currently a member of the U.S. armed forces.", ko: "제가 현재 미군 소속인지 묻는 거죠." },
+    { en: "You're asking if I'm currently serving in the U.S. military.", ko: "제가 현재 미국 군대에서 복무 중인지 묻는 거죠." },
+    { en: "You're asking if, right now, I'm a member of the U.S. armed forces.", ko: "제가 지금 미군 소속인지 묻는 거죠." },
+  ],
+  "26.b": [
+    { en: "You're asking if, if that applies to me, I'm scheduled to deploy outside the U.S., including to a vessel, within 3 months.", ko: "해당된다면 제가 3개월 내 미국 밖(함정 포함)으로 파병 예정인지 묻는 거죠." },
+    { en: "You're asking if I'm set to deploy outside the U.S. within the next three months.", ko: "제가 향후 3개월 내 미국 밖으로 파병 예정인지 묻는 거죠." },
+    { en: "You're asking if a deployment outside the country, including to a ship, is scheduled for me within 3 months.", ko: "제가 3개월 내 함정 포함 국외 파병이 예정돼 있는지 묻는 거죠." },
+  ],
+  "26.c": [
+    { en: "You're asking if, if that applies to me, I'm currently stationed outside the U.S.", ko: "해당된다면 제가 현재 미국 밖에 주둔 중인지 묻는 거죠." },
+    { en: "You're asking if, right now, I'm stationed outside the U.S.", ko: "제가 지금 미국 밖에 주둔 중인지 묻는 거죠." },
+    { en: "You're asking if I'm presently posted or stationed outside the U.S.", ko: "제가 현재 미국 밖에 배치·주둔해 있는지 묻는 거죠." },
+  ],
+  "26.d": [
+    { en: "You're asking if, since I'm not serving now, I'm a former U.S. service member living outside the U.S.", ko: "현재 복무 중이 아니라면 제가 미국 밖에 사는 전직 미군인지 묻는 거죠." },
+    { en: "You're asking if I'm a former U.S. military member currently residing outside the U.S.", ko: "제가 현재 미국 밖에 거주하는 전직 미군인지 묻는 거죠." },
+    { en: "You're asking if I previously served in the U.S. military and now live outside the country.", ko: "제가 전에 미군에 복무했고 지금은 국외에 사는지 묻는 거죠." },
+  ],
+  "27": [
+    { en: "You're asking if, in the U.S. military, I was ever court-martialed or given an other-than-honorable, bad-conduct, or dishonorable discharge.", ko: "제가 미군 복무 중 군사재판을 받거나 명예제대가 아닌 전역을 한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever court-martialed or given a less-than-honorable discharge during my service.", ko: "제가 군 복무 중 군사재판을 받거나 명예제대 못 미치는 전역을 한 적 있는지 묻는 거죠." },
+    { en: "You're asking if, while serving, I was ever tried by court-martial or discharged as other than honorable.", ko: "제가 미군 복무 중 군사재판에 회부되거나 명예제대가 아닌 전역을 한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever got a bad-conduct, dishonorable, or other-than-honorable discharge from the U.S. military.", ko: "제가 미군에서 품행불량·불명예·기타 비명예 전역을 받은 적 있는지 묻는 거죠." },
+  ],
+  "28": [
+    { en: "You're asking if I was ever discharged from U.S. military training or service because I was an alien.", ko: "제가 외국인이라는 이유로 미군 훈련·복무에서 전역당한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I was ever released from U.S. military training or service because I wasn't a citizen.", ko: "제가 시민이 아니라는 이유로 미군 훈련·복무에서 해제된 적 있는지 묻는 거죠." },
+    { en: "You're asking if the U.S. military ever discharged me because I was a foreign national.", ko: "미군이 외국 국적자라는 이유로 저를 전역시킨 적 있는지 묻는 거죠." },
+  ],
+  "29": [
+    { en: "You're asking if I ever deserted from the U.S. armed forces.", ko: "제가 미군에서 탈영한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever left the U.S. military without permission — that is, deserted.", ko: "제가 허가 없이 미군을 이탈, 즉 탈영한 적 있는지 묻는 거죠." },
+    { en: "You're asking if I ever deserted from the U.S. armed forces.", ko: "제가 미군에서 탈영한 적 있는지 묻는 거죠." },
+  ],
+  "30.a": [
+    { en: "You're asking if I now have, or ever had, a hereditary title or order of nobility in a foreign country.", ko: "제가 외국의 세습 작위나 귀족 칭호를 지금 또는 과거에 가졌는지 묻는 거죠." },
+    { en: "You're asking if I ever held a noble title or rank in another country.", ko: "제가 다른 나라에서 귀족 칭호나 지위를 가진 적 있는지 묻는 거죠." },
+    { en: "You're asking if I currently hold, or ever held, a hereditary title or order of nobility abroad.", ko: "제가 해외에서 세습 작위나 귀족 칭호를 지금 또는 과거에 보유했는지 묻는 거죠." },
+  ],
+  "30.b": [
+    { en: "You're asking if, if that applies to me, I'm willing to give up inherited titles or nobility at my ceremony.", ko: "해당된다면 제가 귀화식에서 물려받은 작위·귀족 칭호를 포기할 의향이 있는지 묻는 거죠." },
+    { en: "You're asking if I'd be willing to give up any foreign title or nobility at the ceremony.", ko: "제가 귀화식에서 외국 작위·귀족 칭호를 포기할 의향이 있는지 묻는 거죠." },
+    { en: "You're asking if I'm willing to renounce any foreign noble titles at my ceremony.", ko: "제가 귀화식에서 외국 귀족 칭호를 포기할 의향이 있는지 묻는 거죠." },
+  ],
+  "31": [
+    { en: "You're asking if I support the Constitution and form of government of the U.S.", ko: "제가 미국 헌법과 정부 형태를 지지하는지 묻는 거죠." },
+    { en: "You're asking if I support the Constitution and system of government of the U.S.", ko: "제가 미국 헌법과 정부 체제를 지지하는지 묻는 거죠." },
+    { en: "You're asking if I support the U.S. Constitution and its form of government.", ko: "제가 미국 헌법과 그 정부 형태를 지지하는지 묻는 거죠." },
+  ],
+  "32": [
+    { en: "You're asking if I understand the full Oath of Allegiance to the U.S.", ko: "제가 미국 충성 선서 전문을 이해하는지 묻는 거죠." },
+    { en: "You're asking if I understand the complete Oath of Allegiance I'll take.", ko: "제가 하게 될 충성 선서 전문을 이해하는지 묻는 거죠." },
+    { en: "You're asking if I understand everything in the full Oath of Allegiance.", ko: "제가 충성 선서 전문의 모든 내용을 이해하는지 묻는 거죠." },
+  ],
+  "33": [
+    { en: "You're asking if I'm unable to take the Oath because of a physical/developmental disability or mental impairment.", ko: "제가 신체·발달 장애나 정신적 손상으로 선서를 못 하는지 묻는 거죠." },
+    { en: "You're asking if any physical or mental disability makes me unable to take the Oath.", ko: "제가 선서를 할 수 없게 만드는 신체·정신 장애가 있는지 묻는 거죠." },
+    { en: "You're asking if a developmental disability or mental impairment prevents me from taking the Oath.", ko: "제가 발달 장애나 정신적 손상으로 선서를 하지 못하는지 묻는 거죠." },
+  ],
+  "34": [
+    { en: "You're asking if I'm willing to take the full Oath of Allegiance to the U.S.", ko: "제가 미국 충성 선서 전문을 할 의향이 있는지 묻는 거죠." },
+    { en: "You're asking if I'm willing to take the complete Oath of Allegiance to the U.S.", ko: "제가 미국 충성 선서 전문을 할 의향이 있는지 묻는 거죠." },
+    { en: "You're asking if I'll take the entire Oath of Allegiance to the U.S.", ko: "제가 미국 충성 선서 전체를 할지 묻는 거죠." },
+  ],
+  "35": [
+    { en: "You're asking if, when the law requires it, I'm willing to bear arms for the U.S.", ko: "법이 요구하면 제가 미국을 위해 무기를 들 의향이 있는지 묻는 거죠." },
+    { en: "You're asking if, should the law require it, I'd carry weapons for the U.S.", ko: "법이 요구하면 제가 미국을 위해 무기를 휴대할 의향이 있는지 묻는 거죠." },
+    { en: "You're asking if, if required by law, I'm willing to bear arms for this country.", ko: "법으로 요구되면 제가 이 나라를 위해 무기를 들 의향이 있는지 묻는 거죠." },
+  ],
+  "36": [
+    { en: "You're asking if, when the law requires it, I'm willing to do noncombatant service in the armed forces.", ko: "법이 요구하면 제가 미군에서 비전투 복무를 할 의향이 있는지 묻는 거죠." },
+    { en: "You're asking if, should the law require it, I'd serve in a noncombatant role without fighting.", ko: "법이 요구하면 제가 싸움 없는 비전투 역할로 복무할지 묻는 거죠." },
+    { en: "You're asking if, if required by law, I'm willing to do noncombatant service in the U.S. military.", ko: "법으로 요구되면 제가 미군에서 비전투 복무를 할 의향이 있는지 묻는 거죠." },
+  ],
+  "37": [
+    { en: "You're asking if, when the law requires it, I'm willing to do work of national importance under civilian direction.", ko: "법이 요구하면 제가 민간 지휘 하 국가 중요 업무를 할 의향이 있는지 묻는 거죠." },
+    { en: "You're asking if, should the law require it, I'd do work of national importance under civilian direction.", ko: "법이 요구하면 제가 민간 지휘 하 국가 중요 업무를 할지 묻는 거죠." },
+    { en: "You're asking if, if required by law, I'm willing to do important non-military work under civilian direction.", ko: "법으로 요구되면 제가 민간 지휘 하 중요 비군사 업무를 할 의향이 있는지 묻는 거죠." },
+  ],
+};
+
 // ── 원문(official_en)·번역(ko)을 n400_sentence_vocab에서 가져와 병합 ───────────
 const cardIndex = new Map<
   string,
@@ -2010,12 +2348,15 @@ export const PART9_QUESTIONS: Part9Question[] = RESTATE_ITEMS.map((item) => {
     );
   }
   const rephKo = REPHRASING_KO[item.id] ?? [];
+  const rephRestate = REPHRASING_RESTATE[item.id] ?? [];
   return {
     ...item,
-    // 영어 rephrasings에 같은 index의 한국어를 병합. 누락 시 공식 번역으로 안전 대체.
+    // 영어 rephrasings에 같은 index의 한국어·맞춤 재진술을 병합.
+    // 누락 시 각각 공식 번역 / 기본 재진술(short)로 안전 대체.
     rephrasings: item.rephrasings.map((en, i) => ({
       en,
       ko: rephKo[i] ?? found.card.ko,
+      restate: rephRestate[i] ?? item.restatement_tiers.short,
     })),
     groupId: found.section.id,
     groupTitle: found.section.title,
